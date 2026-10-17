@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Flame, Calendar, Droplets, Route, Star, Navigation, X } from 'lucide-react';
 import { ACTIVE_RAID_BOSS, COMMUNITY_ROUTES, RUNNING_EVENTS } from '../../data/mock';
+import { useAppStore, WorldPlaceId } from '../../store/useAppStore';
 
 type SpotCategory = 'Raids' | 'Events' | 'Water' | 'Routes';
 
 interface DiscoverySpot {
   id: string;
+  placeId: WorldPlaceId;
   category: SpotCategory;
   title: string;
   subtitle: string;
   badgeText: string;
-  distanceAway: string;
   xPercent: number;
   yPercent: number;
 }
@@ -19,41 +20,41 @@ interface DiscoverySpot {
 const DISCOVERY_SPOTS: DiscoverySpot[] = [
   {
     id: 'spot-raid',
+    placeId: 'raid',
     category: 'Raids',
     title: `${ACTIVE_RAID_BOSS.name} Raid`,
     subtitle: `⏱ ${ACTIVE_RAID_BOSS.countdown} • ${ACTIVE_RAID_BOSS.runnersJoined} Runners Joined`,
     badgeText: 'ACTIVE BOSS',
-    distanceAway: '350m away',
     xPercent: 68,
     yPercent: 25,
   },
   {
     id: 'spot-event',
+    placeId: 'event',
     category: 'Events',
     title: RUNNING_EVENTS[1].title,
     subtitle: `${RUNNING_EVENTS[1].startsIn} • ${RUNNING_EVENTS[1].distanceKm} KM • ${RUNNING_EVENTS[1].participants.toLocaleString()} Runners`,
     badgeText: 'FEATURED EVENT',
-    distanceAway: '600m away',
     xPercent: 28,
     yPercent: 32,
   },
   {
     id: 'spot-water',
+    placeId: 'water',
     category: 'Water',
     title: 'GBK Mist & Water Station',
     subtitle: 'Free Cold Refill • Electrolytes & Shade Point',
     badgeText: 'HYDRATION',
-    distanceAway: '180m away',
     xPercent: 72,
     yPercent: 68,
   },
   {
     id: 'spot-route',
+    placeId: 'popular',
     category: 'Routes',
     title: `${COMMUNITY_ROUTES[0].name} (${COMMUNITY_ROUTES[0].distanceKm} KM)`,
     subtitle: `Community Rated ★ 4.8 • Flat Scenic Park Loop`,
     badgeText: 'POPULAR ROUTE',
-    distanceAway: '120m away',
     xPercent: 30,
     yPercent: 72,
   },
@@ -68,6 +69,7 @@ const FILTER_CHIPS: { label: SpotCategory; icon: React.ReactNode; color: string 
 
 export const MapDiscoveryScreen: React.FC = () => {
   const navigate = useNavigate();
+  const { placeDistances, setGuidedPlaceId } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<SpotCategory | null>(null);
   const [selectedSpotId, setSelectedSpotId] = useState<string>('spot-raid');
@@ -90,21 +92,11 @@ export const MapDiscoveryScreen: React.FC = () => {
 
   const handleMarkerClick = (spot: DiscoverySpot) => {
     setSelectedSpotId(spot.id);
-    if (spot.category === 'Raids') {
-      navigate('/raid/lobby');
-    } else if (spot.category === 'Events') {
-      navigate('/events');
-    }
   };
 
-  const handlePrimarySpotAction = (spot: DiscoverySpot) => {
-    if (spot.category === 'Raids') {
-      navigate('/raid/lobby');
-    } else if (spot.category === 'Events') {
-      navigate('/events');
-    } else {
-      navigate('/');
-    }
+  const handleShowRoute = (spot: DiscoverySpot) => {
+    setGuidedPlaceId(spot.placeId);
+    navigate('/');
   };
 
   return (
@@ -317,10 +309,12 @@ export const MapDiscoveryScreen: React.FC = () => {
               className="touch-target"
               aria-label={
                 spot.category === 'Raids'
-                  ? 'Raid Marker: Open Raid Lobby'
+                  ? 'Raid Boss marker'
                   : spot.category === 'Events'
-                  ? 'Event Marker: Open Events Discovery'
-                  : `${spot.category} Marker: ${spot.title}`
+                  ? 'Live Event marker'
+                  : spot.category === 'Water'
+                  ? 'Water Spot marker'
+                  : 'GBK Route marker'
               }
               style={{
                 position: 'absolute',
@@ -395,7 +389,7 @@ export const MapDiscoveryScreen: React.FC = () => {
             pointerEvents: 'none',
           }}
         >
-          Tap Raid or Event marker to jump in
+          Tap a marker to see where it is
         </div>
       </section>
 
@@ -463,7 +457,7 @@ export const MapDiscoveryScreen: React.FC = () => {
                   {selectedSpot.badgeText}
                 </span>
                 <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--color-text-muted)' }}>
-                  {selectedSpot.distanceAway}
+                  {placeDistances[selectedSpot.placeId]}m away
                 </span>
               </div>
               <h2
@@ -483,7 +477,7 @@ export const MapDiscoveryScreen: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => handlePrimarySpotAction(selectedSpot)}
+              onClick={() => handleShowRoute(selectedSpot)}
               className="touch-target"
               style={{
                 minHeight: 44,
@@ -499,13 +493,7 @@ export const MapDiscoveryScreen: React.FC = () => {
               }}
             >
               <Navigation size={14} />
-              <span>
-                {selectedSpot.category === 'Raids'
-                  ? 'Join Raid'
-                  : selectedSpot.category === 'Events'
-                  ? 'Open Events'
-                  : 'Start Run'}
-              </span>
+              <span>Show the route</span>
             </button>
           </div>
         )}

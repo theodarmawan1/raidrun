@@ -107,6 +107,13 @@ class WebGLErrorBoundary extends React.Component<
   }
 }
 
+const GUIDE_LABELS: Record<PlaceId, string> = {
+  raid: 'Raid Plaza',
+  event: 'Live Event',
+  water: 'Water Spot',
+  popular: 'GBK Route',
+};
+
 export const MapPlaceholderScreen: React.FC = () => {
   const navigate = useNavigate();
   const {
@@ -116,6 +123,11 @@ export const MapPlaceholderScreen: React.FC = () => {
     setQualityPreset,
     showToast,
     introDismissed,
+    guidedPlaceId,
+    setGuidedPlaceId,
+    mintWorldPos,
+    setMintWorldPos,
+    placeDistances,
   } = useAppStore();
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -146,11 +158,11 @@ export const MapPlaceholderScreen: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [introDismissed, walkHintVisible]);
 
-  // Mint starts on the path at (48%, 695px) — free walking never adds distance, XP, or coins
-  const [mintPos, setMintPos] = useState<{ xPct: number; yPx: number }>({
-    xPct: 48,
-    yPx: 695,
-  });
+  // Mint starts on the path — synced with mintWorldPos in store; free walking never adds distance, XP, or coins
+  const [mintPos, setMintPos] = useState<{ xPct: number; yPx: number }>(() => ({
+    xPct: Number((50 + mintWorldPos.x / 0.22).toFixed(2)),
+    yPx: Number((600 + mintWorldPos.z / 0.044).toFixed(1)),
+  }));
   const [targetPos, setTargetPos] = useState<{ xPct: number; yPx: number } | null>(null);
   const [activePlaceId, setActivePlaceId] = useState<PlaceId | null>(null);
   const [dismissedPlaceId, setDismissedPlaceId] = useState<PlaceId | null>(null);
@@ -160,7 +172,7 @@ export const MapPlaceholderScreen: React.FC = () => {
     offScreen: boolean;
     angleDeg: number;
   }>({
-    distMeters: 185,
+    distMeters: placeDistances[guidedPlaceId],
     offScreen: true,
     angleDeg: 0,
   });
@@ -197,14 +209,20 @@ export const MapPlaceholderScreen: React.FC = () => {
 
         if (distPx < 4) {
           setTargetPos(null);
+          const wx = (targetPos.xPct - 50) * 0.22;
+          const wz = (targetPos.yPx - 600) * 0.044;
+          setMintWorldPos(wx, wz);
           return targetPos;
         }
 
         const speedPxPerSec = 260;
         const moveRatio = Math.min(1, (speedPxPerSec * dt) / distPx);
+        const nextXPct = Number((prev.xPct + dxPct * moveRatio).toFixed(2));
+        const nextYPx = Number((prev.yPx + dyPx * moveRatio).toFixed(1));
+        setMintWorldPos((nextXPct - 50) * 0.22, (nextYPx - 600) * 0.044);
         return {
-          xPct: Number((prev.xPct + dxPct * moveRatio).toFixed(2)),
-          yPx: Number((prev.yPx + dyPx * moveRatio).toFixed(1)),
+          xPct: nextXPct,
+          yPx: nextYPx,
         };
       });
 
@@ -213,7 +231,7 @@ export const MapPlaceholderScreen: React.FC = () => {
 
     animId = requestAnimationFrame(step);
     return () => cancelAnimationFrame(animId);
-  }, [targetPos, use3DWorld]);
+  }, [targetPos, use3DWorld, setMintWorldPos]);
 
   // Check proximity to markers in 2D mode so the info card appears when Mint is near a marker
   useEffect(() => {
@@ -248,19 +266,15 @@ export const MapPlaceholderScreen: React.FC = () => {
   const maxCameraTop = Math.max(0, WORLD_HEIGHT - viewportHeight);
   const cameraTop = Math.max(0, Math.min(maxCameraTop, rawCameraTop));
 
-  // 2D distance & off-screen computation for Raid Portal
-  const raidPlace2D = WORLD_PLACES[0];
-  const raidDxPx2D = ((raidPlace2D.xPct - mintPos.xPct) / 100) * 340;
-  const raidDyPx2D = raidPlace2D.yPx - mintPos.yPx;
-  const rawDistPx2D = Math.hypot(raidDxPx2D, raidDyPx2D);
-  const distMeters2D = Math.max(0, Math.round(Math.max(0, rawDistPx2D - 26) * 0.4));
-  const offScreen2D =
-    raidPlace2D.yPx < cameraTop + 28 || raidPlace2D.yPx > cameraTop + viewportHeight - 28;
-  const angleDeg2D = Math.round((Math.atan2(raidDxPx2D, -raidDyPx2D) * 180) / Math.PI);
+  // Guided place info (uses exact same placeDistances as Explore Map card)
+  const guidedPlace = WORLD_PLACES.find((p) => p.id === guidedPlaceId) || WORLD_PLACES[0];
+  const guidedDxPx2D = ((guidedPlace.xPct - mintPos.xPct) / 100) * 340;
+  const guidedDyPx2D = guidedPlace.yPx - mintPos.yPx;
+  const angleDeg2D = Math.round((Math.atan2(guidedDxPx2D, -guidedDyPx2D) * 180) / Math.PI);
 
-  const raidDistMeters = use3DWorld ? raidGuidance3D.distMeters : distMeters2D;
-  const isRaidOffScreen = use3DWorld ? raidGuidance3D.offScreen : offScreen2D;
-  const raidArrowAngleDeg = use3DWorld ? raidGuidance3D.angleDeg : angleDeg2D;
+  const guidedDistMeters = placeDistances[guidedPlace.id];
+  const guidedArrowAngleDeg = use3DWorld ? raidGuidance3D.angleDeg : angleDeg2D;
+  const isCloseToRaidPortal = placeDistances.raid <= 15;
 
   const handleGroundTap2D = (e: React.MouseEvent<HTMLDivElement>) => {
     if (use3DWorld || !viewportRef.current) return;
@@ -285,6 +299,7 @@ export const MapPlaceholderScreen: React.FC = () => {
   const handleMarkerTap2D = (e: React.MouseEvent, place: WorldPlace3D) => {
     e.stopPropagation();
     dismissWalkHint();
+    setGuidedPlaceId(place.id);
     setDismissedPlaceId(null);
     setActivePlaceId(place.id);
     setTargetPos({
@@ -294,6 +309,13 @@ export const MapPlaceholderScreen: React.FC = () => {
   };
 
   const handleJoinRaid = () => {
+    if (!isCloseToRaidPortal) {
+      const raidPlace = WORLD_PLACES[0];
+      setGuidedPlaceId('raid');
+      setTargetPos({ xPct: raidPlace.xPct, yPx: raidPlace.yPx + 22 });
+      showToast('Walking to Raid Portal...');
+      return;
+    }
     setRaidSubTab('lobby');
     showToast('Joined Raid Lobby — Ember Titan');
     navigate('/raid');
@@ -754,10 +776,13 @@ export const MapPlaceholderScreen: React.FC = () => {
               <LazyHomeIsland3D
                 places={WORLD_PLACES}
                 activePlaceId={activePlaceId}
+                guidedPlaceId={guidedPlaceId}
+                initialMintWorldPos={mintWorldPos}
                 targetPos={targetPos}
                 qualityPreset={qualityPreset}
                 onSelectPlace={(placeId, walkTarget) => {
                   dismissWalkHint();
+                  setGuidedPlaceId(placeId);
                   setDismissedPlaceId(null);
                   setActivePlaceId(placeId);
                   setTargetPos(walkTarget);
@@ -779,6 +804,7 @@ export const MapPlaceholderScreen: React.FC = () => {
                 }}
                 onRegionChange={(isNorth) => setIsNorthRegion3D(isNorth)}
                 onRaidGuidanceChange={(info) => setRaidGuidance3D(info)}
+                onMintWorldMove={(x, z) => setMintWorldPos(x, z)}
                 onLowFpsFallback={() => {
                   setQualityPreset('low');
                   showToast('Low frame rate detected — switched to Low quality (2D map)');
@@ -791,7 +817,7 @@ export const MapPlaceholderScreen: React.FC = () => {
           renderFallback2DLayer()
         )}
 
-        {/* Top Overlay: Always-Visible "Walk to Raid Plaza" Guidance Pill + Quality High/Low Toggle */}
+        {/* Top Overlay: Always-Visible "Walk to ..." Guidance Pill + Quality High/Low Toggle */}
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
@@ -811,20 +837,25 @@ export const MapPlaceholderScreen: React.FC = () => {
             type="button"
             onClick={() => {
               dismissWalkHint();
-              const raidPlace = WORLD_PLACES[0];
               setDismissedPlaceId(null);
-              setActivePlaceId('raid');
-              setTargetPos({ xPct: raidPlace.xPct, yPx: raidPlace.yPx + 22 });
+              setActivePlaceId(guidedPlace.id);
+              setTargetPos({
+                xPct:
+                  guidedPlace.id === 'raid'
+                    ? guidedPlace.xPct
+                    : Math.max(24, Math.min(76, guidedPlace.xPct - 6)),
+                yPx: guidedPlace.yPx + 22,
+              });
             }}
             className="touch-target"
-            aria-label={`Walk to Raid Plaza, ${raidDistMeters} meters away`}
+            aria-label={`Walk to ${GUIDE_LABELS[guidedPlace.id]}, ${guidedDistMeters} meters away`}
             style={{
               pointerEvents: 'auto',
               minHeight: 44,
               padding: '0 10px',
               borderRadius: 'var(--radius-pill)',
               background: 'rgba(255, 255, 255, 0.95)',
-              border: '1.5px solid #ff3b9a',
+              border: `1.5px solid ${guidedPlace.accentColor}`,
               boxShadow: 'var(--shadow-card)',
               fontSize: '0.68rem',
               fontWeight: 900,
@@ -833,11 +864,13 @@ export const MapPlaceholderScreen: React.FC = () => {
               whiteSpace: 'nowrap',
             }}
           >
-            <Compass size={13} color="#ff3b9a" style={{ flexShrink: 0 }} />
-            <span>Walk to Raid Plaza • {raidDistMeters}m</span>
-            {isRaidOffScreen && (
+            <Compass size={13} color={guidedPlace.accentColor} style={{ flexShrink: 0 }} />
+            <span>
+              Walk to {GUIDE_LABELS[guidedPlace.id]} • {guidedDistMeters}m
+            </span>
+            {guidedDistMeters > 0 && (
               <span
-                aria-label="Portal off-screen direction"
+                aria-label="Target direction arrow"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -845,11 +878,11 @@ export const MapPlaceholderScreen: React.FC = () => {
                   width: 18,
                   height: 18,
                   borderRadius: '50%',
-                  background: '#ff3b9a',
+                  background: guidedPlace.accentColor,
                   color: '#ffffff',
                   fontSize: '0.68rem',
                   fontWeight: 900,
-                  transform: `rotate(${raidArrowAngleDeg}deg)`,
+                  transform: `rotate(${guidedArrowAngleDeg}deg)`,
                   transition: 'transform 0.2s ease',
                   flexShrink: 0,
                 }}
@@ -1015,25 +1048,48 @@ export const MapPlaceholderScreen: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-              {activePlace.id === 'raid' && (
-                <button
-                  type="button"
-                  onClick={handleJoinRaid}
-                  className="touch-target"
-                  style={{
-                    minHeight: 44,
-                    padding: '0 14px',
-                    borderRadius: 'var(--radius-pill)',
-                    background: 'var(--gradient-cta)',
-                    color: '#ffffff',
-                    fontWeight: 900,
-                    fontSize: '0.78rem',
-                    boxShadow: '0 3px 0 #057a80',
-                  }}
-                >
-                  Join Raid →
-                </button>
-              )}
+              {activePlace.id === 'raid' &&
+                (isCloseToRaidPortal ? (
+                  <button
+                    type="button"
+                    onClick={handleJoinRaid}
+                    className="touch-target"
+                    style={{
+                      minHeight: 44,
+                      padding: '0 14px',
+                      borderRadius: 'var(--radius-pill)',
+                      background: 'var(--gradient-cta)',
+                      color: '#ffffff',
+                      fontWeight: 900,
+                      fontSize: '0.78rem',
+                      boxShadow: '0 3px 0 #057a80',
+                    }}
+                  >
+                    Join Raid →
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const raidPlace = WORLD_PLACES[0];
+                      setGuidedPlaceId('raid');
+                      setTargetPos({ xPct: raidPlace.xPct, yPx: raidPlace.yPx + 22 });
+                    }}
+                    className="touch-target"
+                    style={{
+                      minHeight: 44,
+                      padding: '0 12px',
+                      borderRadius: 'var(--radius-pill)',
+                      background: 'rgba(255, 59, 154, 0.12)',
+                      border: '1.5px solid #ff3b9a',
+                      color: 'var(--color-text-primary)',
+                      fontWeight: 900,
+                      fontSize: '0.72rem',
+                    }}
+                  >
+                    Walk Closer ({placeDistances.raid}m)
+                  </button>
+                ))}
 
               {activePlace.id === 'event' && (
                 <button

@@ -62,6 +62,7 @@ body {
 /* Scrollable screen viewport respecting safe areas, 16px min padding, and floating tabbar */
 .screen-scroll {
   flex: 1;
+  min-height: 0;
   width: 100%;
   overflow-y: auto;
   overflow-x: hidden;
@@ -72,6 +73,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.screen-scroll > *:not(.hub-tab-scroll) {
+  flex-shrink: 0;
 }
 
 /* Reusable UI primitives */

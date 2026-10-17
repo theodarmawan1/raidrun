@@ -29,6 +29,8 @@ export interface RaidGuidanceInfo {
 interface HomeIsland3DProps {
   places: WorldPlace3D[];
   activePlaceId: PlaceId | null;
+  guidedPlaceId?: PlaceId;
+  initialMintWorldPos?: { x: number; z: number };
   targetPos: { xPct: number; yPx: number } | null;
   qualityPreset?: 'high' | 'low';
   zoomFactor?: number;
@@ -37,6 +39,7 @@ interface HomeIsland3DProps {
   onGroundTap: (walkTarget: { xPct: number; yPx: number }) => void;
   onRegionChange?: (isNorthHalf: boolean) => void;
   onRaidGuidanceChange?: (info: RaidGuidanceInfo) => void;
+  onMintWorldMove?: (x: number, z: number) => void;
   onLowFpsFallback?: () => void;
   onContextError?: () => void;
 }
@@ -413,6 +416,8 @@ const MintCharacterMesh: React.FC<MintCharacterMeshProps> = ({
 const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObject<number> }> = ({
   places,
   activePlaceId,
+  guidedPlaceId = 'raid',
+  initialMintWorldPos,
   targetPos,
   qualityPreset = 'high',
   zoomRef,
@@ -421,6 +426,7 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
   onGroundTap,
   onRegionChange,
   onRaidGuidanceChange,
+  onMintWorldMove,
   onLowFpsFallback,
 }) => {
   const gradientMap = useToonGradientMap();
@@ -448,14 +454,30 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
     'popular',
   ]);
 
-  const mintPos3D = useRef(new THREE.Vector3(-0.4, 0, 3.6));
+  const mintPos3D = useRef(
+    new THREE.Vector3(
+      initialMintWorldPos ? initialMintWorldPos.x : -0.4,
+      0,
+      initialMintWorldPos ? initialMintWorldPos.z : 3.6
+    )
+  );
+  const lastReportedPos = useRef({
+    x: initialMintWorldPos ? initialMintWorldPos.x : -0.4,
+    z: initialMintWorldPos ? initialMintWorldPos.z : 3.6,
+  });
   const mintAngle = useRef(Math.PI);
   const crystiePos3D = useRef(new THREE.Vector3(0.28, 0.68, 4.0));
   const walkTarget3D = useRef<THREE.Vector3 | null>(null);
   const lastProximityId = useRef<PlaceId | null>(null);
   const lastNorthState = useRef<boolean>(false);
-  const lastRaidGuidance = useRef<{ distMeters: number; offScreen: boolean; angleDeg: number }>({
-    distMeters: 185,
+  const lastRaidGuidance = useRef<{
+    placeId: PlaceId;
+    distMeters: number;
+    offScreen: boolean;
+    angleDeg: number;
+  }>({
+    placeId: guidedPlaceId,
+    distMeters: -1,
     offScreen: true,
     angleDeg: 0,
   });
@@ -650,21 +672,35 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
       setVisibleMarkerIds(nextVisibleMarkers);
     }
 
-    // Live distance to Raid Portal & off-screen indicator check
-    const [raidX, raidZ] = getPlaceWorldCoords(places[0]);
-    const rawRaidDist = Math.hypot(raidX - pos.x, raidZ - pos.z);
-    const distMeters = Math.max(0, Math.round(Math.max(0, rawRaidDist - 1.15) * 9.5));
+    // Live distance & directional arrow toward guidedPlaceId
+    const guidedPlace = places.find((p) => p.id === guidedPlaceId) || places[0];
+    const [targetX, targetZ] = getPlaceWorldCoords(guidedPlace);
+    const rawTargetDist = Math.hypot(targetX - pos.x, targetZ - pos.z);
+    const distMeters = Math.max(0, Math.round(Math.max(0, rawTargetDist - 1.15) * 9.5));
 
-    const isOffScreen = !nextVisibleMarkers.includes('raid');
-    const angleDeg = Math.round((Math.atan2(raidX - pos.x, -(raidZ - pos.z)) * 180) / Math.PI);
+    const isOffScreen = !nextVisibleMarkers.includes(guidedPlace.id);
+    const angleDeg = Math.round((Math.atan2(targetX - pos.x, -(targetZ - pos.z)) * 180) / Math.PI);
 
     if (
+      Math.hypot(pos.x - lastReportedPos.current.x, pos.z - lastReportedPos.current.z) >= 0.08
+    ) {
+      lastReportedPos.current = { x: pos.x, z: pos.z };
+      onMintWorldMove?.(pos.x, pos.z);
+    }
+
+    if (
+      guidedPlace.id !== lastRaidGuidance.current.placeId ||
       Math.abs(distMeters - lastRaidGuidance.current.distMeters) >= 1 ||
       isOffScreen !== lastRaidGuidance.current.offScreen ||
-      Math.abs(angleDeg - lastRaidGuidance.current.angleDeg) >= 8
+      Math.abs(angleDeg - lastRaidGuidance.current.angleDeg) >= 6
     ) {
-      lastRaidGuidance.current = { distMeters, offScreen: isOffScreen, angleDeg };
-      onRaidGuidanceChange?.(lastRaidGuidance.current);
+      lastRaidGuidance.current = {
+        placeId: guidedPlace.id,
+        distMeters,
+        offScreen: isOffScreen,
+        angleDeg,
+      };
+      onRaidGuidanceChange?.({ distMeters, offScreen: isOffScreen, angleDeg });
     }
 
     // Proximity check to the 4 places on land (skip intermediate places while actively walking to a chosen place)

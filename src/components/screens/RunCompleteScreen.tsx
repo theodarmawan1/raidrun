@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Award, Flame, Gauge, MapPin, Shield, Star, Timer, Trophy } from 'lucide-react';
 import { ACTIVE_RAID_BOSS } from '../../data/mock';
@@ -12,6 +12,7 @@ function formatDuration(totalSeconds: number): string {
 
 export const RunCompleteScreen: React.FC = () => {
   const navigate = useNavigate();
+  const [confettiActive, setConfettiActive] = useState(true);
   const {
     user,
     run,
@@ -21,6 +22,11 @@ export const RunCompleteScreen: React.FC = () => {
     claimRunRewards,
     showToast,
   } = useAppStore();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setConfettiActive(false), 2200);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const distKm = Number(Math.max(0.1, run.distanceKm).toFixed(2));
   const movingSeconds = Math.round(distKm * run.paceSecondsPerKm);
@@ -43,11 +49,11 @@ export const RunCompleteScreen: React.FC = () => {
         className="frosted-card"
         style={{
           position: 'relative',
+          flexShrink: 0,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: 8,
-          overflow: 'hidden',
         }}
       >
         {/* Title & Conditional Raid Victory Banner (Confetti placed below title so it never overlaps) */}
@@ -103,50 +109,54 @@ export const RunCompleteScreen: React.FC = () => {
             paddingTop: 4,
           }}
         >
-          {/* Confetti pieces positioned exclusively to the left and right of the character, below the title */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              top: 6,
-              bottom: 6,
-              left: 12,
-              right: 12,
-              pointerEvents: 'none',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-            }}
-          >
-            <div style={{ display: 'flex', gap: 14 }}>
-              {['#ff3b9a', '#1ce5c8', '#ffc837'].map((color, idx) => (
-                <span
-                  key={idx}
-                  style={{
-                    width: 7,
-                    height: 13,
-                    borderRadius: 3,
-                    background: color,
-                    animation: `confettiFall ${1.1 + idx * 0.15}s ease-in-out infinite alternate`,
-                  }}
-                />
-              ))}
+          {/* Confetti pieces positioned exclusively to the left and right of the character, unmounted once finished */}
+          {confettiActive && (
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                top: 6,
+                bottom: 6,
+                left: 12,
+                right: 12,
+                pointerEvents: 'none',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+              }}
+            >
+              <div style={{ display: 'flex', gap: 14, pointerEvents: 'none' }}>
+                {['#ff3b9a', '#1ce5c8', '#ffc837'].map((color, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      width: 7,
+                      height: 13,
+                      borderRadius: 3,
+                      background: color,
+                      pointerEvents: 'none',
+                      animation: `confettiFall ${1.1 + idx * 0.15}s ease-in-out 2 alternate`,
+                    }}
+                  />
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 14, pointerEvents: 'none' }}>
+                {['#60a5fa', '#a78bfa', '#34d399'].map((color, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      width: 7,
+                      height: 13,
+                      borderRadius: 3,
+                      background: color,
+                      pointerEvents: 'none',
+                      animation: `confettiFall ${1.2 + idx * 0.15}s ease-in-out 2 alternate`,
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 14 }}>
-              {['#60a5fa', '#a78bfa', '#34d399'].map((color, idx) => (
-                <span
-                  key={idx}
-                  style={{
-                    width: 7,
-                    height: 13,
-                    borderRadius: 3,
-                    background: color,
-                    animation: `confettiFall ${1.2 + idx * 0.15}s ease-in-out infinite alternate`,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
+          )}
 
           <svg width="140" height="92" viewBox="0 0 140 96" style={{ zIndex: 1 }}>
             <ellipse cx="68" cy="88" rx="44" ry="6" fill="rgba(16, 42, 67, 0.1)" />
@@ -329,6 +339,7 @@ export const RunCompleteScreen: React.FC = () => {
       <section
         className="frosted-card"
         style={{
+          flexShrink: 0,
           display: 'grid',
           gridTemplateColumns: 'repeat(2, 1fr)',
           gap: 8,
@@ -397,7 +408,12 @@ export const RunCompleteScreen: React.FC = () => {
       </section>
 
       {/* Claim Rewards CTA */}
-      <button type="button" onClick={handleClaim} className="btn-primary-cta">
+      <button
+        type="button"
+        onClick={handleClaim}
+        className="btn-primary-cta"
+        style={{ flexShrink: 0 }}
+      >
         Claim Rewards
       </button>
     </>

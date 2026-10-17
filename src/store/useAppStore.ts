@@ -10,6 +10,32 @@ import {
   RunningEvent,
 } from '../data/mock';
 
+export type WorldPlaceId = 'raid' | 'event' | 'water' | 'popular';
+
+export const WORLD_PLACE_COORDS_3D: Record<WorldPlaceId, [number, number]> = {
+  raid: [0.3, (215 - 600) * 0.044],
+  event: [2.25, (445 - 600) * 0.044],
+  water: [-2.35, (625 - 600) * 0.044],
+  popular: [2.1, (760 - 600) * 0.044],
+};
+
+export function computePlaceDistancesMeters(
+  mintX: number,
+  mintZ: number
+): Record<WorldPlaceId, number> {
+  const calc = (id: WorldPlaceId) => {
+    const [px, pz] = WORLD_PLACE_COORDS_3D[id];
+    const rawDist = Math.hypot(px - mintX, pz - mintZ);
+    return Math.max(0, Math.round(Math.max(0, rawDist - 1.15) * 9.5));
+  };
+  return {
+    raid: calc('raid'),
+    event: calc('event'),
+    water: calc('water'),
+    popular: calc('popular'),
+  };
+}
+
 interface RunState {
   isRunning: boolean;
   demoSpeed: boolean;
@@ -36,6 +62,9 @@ interface AppState {
   qualityPreset: 'high' | 'low';
   toastMessage: string | null;
   introDismissed: boolean;
+  guidedPlaceId: WorldPlaceId;
+  mintWorldPos: { x: number; z: number };
+  placeDistances: Record<WorldPlaceId, number>;
 
   // Computed / Getters
   getBossRemainingHp: () => number;
@@ -53,6 +82,8 @@ interface AppState {
   showToast: (message: string) => void;
   clearToast: () => void;
   dismissIntro: () => void;
+  setGuidedPlaceId: (placeId: WorldPlaceId) => void;
+  setMintWorldPos: (x: number, z: number) => void;
 
   // Raid / Run loop actions
   startRaidRun: () => void;
@@ -92,6 +123,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   introDismissed:
     typeof window !== 'undefined' &&
     window.sessionStorage.getItem('raidrun_intro_seen') === '1',
+  guidedPlaceId: 'raid',
+  mintWorldPos: { x: -0.4, z: 3.6 },
+  placeDistances: computePlaceDistancesMeters(-0.4, 3.6),
 
   getBossRemainingHp: () => {
     const state = get();
@@ -187,6 +221,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().showToast('RSVP confirmed! Pass saved to My RSVPs.');
   },
   setQualityPreset: (preset) => set({ qualityPreset: preset }),
+  setGuidedPlaceId: (placeId) => set({ guidedPlaceId: placeId }),
+  setMintWorldPos: (x, z) =>
+    set({
+      mintWorldPos: { x, z },
+      placeDistances: computePlaceDistancesMeters(x, z),
+    }),
 
   startRaidRun: () =>
     set((state) => ({
@@ -317,3 +357,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     }),
 }));
+
+if (typeof window !== 'undefined') {
+  (window as unknown as { __useAppStore?: typeof useAppStore }).__useAppStore = useAppStore;
+}
+

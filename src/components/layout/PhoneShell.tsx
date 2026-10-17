@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { BottomTabBar } from './BottomTabBar';
 import { useAppStore } from '../../store/useAppStore';
@@ -10,11 +11,19 @@ interface PhoneShellProps {
 export const PhoneShell: React.FC<PhoneShellProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const { toastMessage, introDismissed, dismissIntro } = useAppStore();
+  const location = useLocation();
+  const scrollRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIsLoading(false), 160);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [location.pathname]);
 
   return (
     <div className="phone-shell">
@@ -189,7 +198,7 @@ export const PhoneShell: React.FC<PhoneShellProps> = ({ children }) => {
         </div>
       )}
 
-      <main className="screen-scroll">
+      <main ref={scrollRef} className="screen-scroll">
         {children}
         <footer
           aria-label="Prototype status"

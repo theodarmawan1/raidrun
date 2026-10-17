@@ -39,6 +39,7 @@ export const RaidResultsScreen: React.FC = () => {
       <section
         className="frosted-card"
         style={{
+          flexShrink: 0,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -49,7 +50,7 @@ export const RaidResultsScreen: React.FC = () => {
         }}
       >
         {/* Bursting Crystal Shards SVG */}
-        <svg width="160" height="82" viewBox="0 0 180 92">
+        <svg width="160" height="82" viewBox="0 0 180 92" style={{ flexShrink: 0 }}>
           <ellipse cx="90" cy="78" rx="56" ry="12" fill="#627d98" />
           <ellipse cx="90" cy="75" rx="44" ry="8" fill="#38f8c2" />
           <polygon points="90,8 76,42 90,56 104,42" fill="#d946ef" />
@@ -78,7 +79,7 @@ export const RaidResultsScreen: React.FC = () => {
       </section>
 
       {/* Ranked Runners List */}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <section style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {rows.map((runner) => {
           const rankCircle = getRankStyle(runner.rank, runner.isUser);
           const badge = getBadgeStyle(runner.rank, runner.isUser);
@@ -88,6 +89,7 @@ export const RaidResultsScreen: React.FC = () => {
               key={runner.id}
               className="frosted-card"
               style={{
+                flexShrink: 0,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 7,
@@ -201,6 +203,7 @@ export const RaidResultsScreen: React.FC = () => {
         type="button"
         onClick={() => navigate('/run/complete')}
         className="btn-primary-cta"
+        style={{ flexShrink: 0 }}
       >
         Continue
       </button>
