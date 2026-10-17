@@ -25,6 +25,7 @@ export const RunScreen: React.FC = () => {
     toggleGps,
     tickRun,
     leaveRaid,
+    showToast,
   } = useAppStore();
 
   // Ensure a fresh or active raid run is started when entering /run if not already running
@@ -48,17 +49,20 @@ export const RunScreen: React.FC = () => {
   // Automatically navigate to Raid Results when Boss HP hits 0
   useEffect(() => {
     if (remainingHp <= 0 && run.bossDefeated) {
+      showToast('Ember Titan defeated! Raid Victory!');
       navigate('/raid/results');
     }
-  }, [remainingHp, run.bossDefeated, navigate]);
+  }, [remainingHp, run.bossDefeated, navigate, showToast]);
 
   const hpPercent = Math.round((remainingHp / bossMaxHp) * 100);
   const userDamage = getUserRaidDamage();
   const communityDamage = Math.round(run.liveCommunityDamage / 10);
 
   const handleConfirmLeave = () => {
+    const savedKm = run.distanceKm.toFixed(2);
     setShowLeaveModal(false);
     leaveRaid();
+    showToast(`Left raid — ${savedKm} KM distance kept.`);
     navigate('/run/complete');
   };
 
@@ -128,18 +132,18 @@ export const RunScreen: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            fontSize: '0.66rem',
+            gap: 8,
+            fontSize: '0.67rem',
             fontWeight: 800,
             color: 'var(--color-text-secondary)',
-            whiteSpace: 'nowrap',
           }}
         >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             <Users size={12} color="#00b8a9" />
-            128 Runners attacking
+            128 Runners
           </span>
-          <span style={{ color: 'var(--color-primary-dark)' }}>
-            Ends when Boss HP hits 0
+          <span style={{ color: 'var(--color-primary-dark)', textAlign: 'right' }}>
+            The raid ends when the boss HP reaches 0. You can leave anytime.
           </span>
         </div>
       </section>
@@ -375,114 +379,127 @@ export const RunScreen: React.FC = () => {
         </div>
 
         {/* Interactive Mode Toggles (Demo Speed ~45s defeat, Ghost Runner, Real GPS) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-          <button
-            type="button"
-            onClick={toggleDemoSpeed}
-            className="touch-target"
-            style={{
-              padding: '6px 6px',
-              borderRadius: 'var(--radius-md)',
-              background: run.demoSpeed ? 'var(--color-primary-soft)' : '#ffffff',
-              border: run.demoSpeed
-                ? '1.5px solid var(--color-primary)'
-                : '1px solid var(--color-border-subtle)',
-              color: 'var(--color-text-primary)',
-              fontWeight: 800,
-              fontSize: '0.7rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-            }}
-          >
-            <span
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+            <button
+              type="button"
+              onClick={toggleDemoSpeed}
+              className="touch-target"
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 3,
-                color: 'var(--color-primary-dark)',
-                whiteSpace: 'nowrap',
+                padding: '6px 6px',
+                borderRadius: 'var(--radius-md)',
+                background: run.demoSpeed ? 'var(--color-primary-soft)' : '#ffffff',
+                border: run.demoSpeed
+                  ? '1.5px solid var(--color-primary)'
+                  : '1px solid var(--color-border-subtle)',
+                color: 'var(--color-text-primary)',
+                fontWeight: 800,
+                fontSize: '0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
               }}
             >
-              <Zap size={12} />
-              Demo Speed
-            </span>
-            <span style={{ fontSize: '0.64rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
-              {run.demoSpeed ? 'ON (~45s Boss)' : 'OFF (1x)'}
-            </span>
-          </button>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  color: 'var(--color-primary-dark)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Zap size={12} />
+                Demo Speed
+              </span>
+              <span style={{ fontSize: '0.64rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                {run.demoSpeed ? 'ON (~45s)' : 'OFF (1x)'}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={toggleGhostRunner}
-            className="touch-target"
-            style={{
-              padding: '6px 6px',
-              borderRadius: 'var(--radius-md)',
-              background: run.ghostRunnerEnabled ? 'var(--color-primary-soft)' : '#ffffff',
-              border: run.ghostRunnerEnabled
-                ? '1.5px solid var(--color-primary)'
-                : '1px solid var(--color-border-subtle)',
-              color: 'var(--color-text-primary)',
-              fontWeight: 800,
-              fontSize: '0.7rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-            }}
-          >
-            <span
+            <button
+              type="button"
+              onClick={toggleGhostRunner}
+              className="touch-target"
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 3,
-                color: 'var(--color-primary-dark)',
-                whiteSpace: 'nowrap',
+                padding: '6px 6px',
+                borderRadius: 'var(--radius-md)',
+                background: run.ghostRunnerEnabled ? 'var(--color-primary-soft)' : '#ffffff',
+                border: run.ghostRunnerEnabled
+                  ? '1.5px solid var(--color-primary)'
+                  : '1px solid var(--color-border-subtle)',
+                color: 'var(--color-text-primary)',
+                fontWeight: 800,
+                fontSize: '0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
               }}
             >
-              <Ghost size={12} />
-              Ghost PR
-            </span>
-            <span style={{ fontSize: '0.64rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
-              {run.ghostRunnerEnabled ? 'Ahead +18m' : 'Off'}
-            </span>
-          </button>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  color: 'var(--color-primary-dark)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Ghost size={12} />
+                Ghost PR
+              </span>
+              <span style={{ fontSize: '0.64rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                {run.ghostRunnerEnabled ? 'Ahead +18m' : 'Off'}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={toggleGps}
-            className="touch-target"
-            style={{
-              padding: '6px 6px',
-              borderRadius: 'var(--radius-md)',
-              background: run.gpsEnabled ? 'var(--color-primary-soft)' : '#ffffff',
-              border: run.gpsEnabled
-                ? '1.5px solid var(--color-primary)'
-                : '1px solid var(--color-border-subtle)',
-              color: 'var(--color-text-primary)',
-              fontWeight: 800,
-              fontSize: '0.7rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-            }}
-          >
-            <span
+            <button
+              type="button"
+              onClick={toggleGps}
+              className="touch-target"
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 3,
-                color: 'var(--color-primary-dark)',
-                whiteSpace: 'nowrap',
+                padding: '6px 6px',
+                borderRadius: 'var(--radius-md)',
+                background: run.gpsEnabled ? 'var(--color-primary-soft)' : '#ffffff',
+                border: run.gpsEnabled
+                  ? '1.5px solid var(--color-primary)'
+                  : '1px solid var(--color-border-subtle)',
+                color: 'var(--color-text-primary)',
+                fontWeight: 800,
+                fontSize: '0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
               }}
             >
-              <Navigation size={12} />
-              Real GPS
-            </span>
-            <span style={{ fontSize: '0.64rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
-              {run.gpsEnabled ? 'Live GPS' : 'Simulated'}
-            </span>
-          </button>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  color: 'var(--color-primary-dark)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Navigation size={12} />
+                Real GPS
+              </span>
+              <span style={{ fontSize: '0.64rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                {run.gpsEnabled ? 'Live GPS' : 'Simulated'}
+              </span>
+            </button>
+          </div>
+
+          <div
+            style={{
+              fontSize: '0.68rem',
+              fontWeight: 800,
+              color: 'var(--color-text-secondary)',
+              paddingLeft: 2,
+            }}
+          >
+            Demo Speed: Simulates a run in about 45 seconds.
+          </div>
         </div>
 
         {/* Single "Leave Raid" Control while Boss HP > 0 (No Pause button per Pokémon GO raid rules) */}
@@ -564,8 +581,8 @@ export const RunScreen: React.FC = () => {
                 lineHeight: 1.4,
               }}
             >
-              {ACTIVE_RAID_BOSS.name} still has <strong>{remainingHp.toLocaleString()} HP</strong> left! If you
-              leave now, you will keep your <strong>{run.distanceKm.toFixed(2)} KM</strong> run distance, but you
+              {ACTIVE_RAID_BOSS.name} still has <strong>{remainingHp.toLocaleString()} HP</strong> left! Your
+              distance so far (<strong>{run.distanceKm.toFixed(2)} KM</strong>) is kept, but you
               won&apos;t earn the Raid Victory bonus.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>

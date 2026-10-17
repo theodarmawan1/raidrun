@@ -12,7 +12,15 @@ function formatDuration(totalSeconds: number): string {
 
 export const RunCompleteScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { user, run, getUserRaidDamage, getEarnedXp, getEarnedCoins, claimRunRewards } = useAppStore();
+  const {
+    user,
+    run,
+    getUserRaidDamage,
+    getEarnedXp,
+    getEarnedCoins,
+    claimRunRewards,
+    showToast,
+  } = useAppStore();
 
   const distKm = Number(Math.max(0.1, run.distanceKm).toFixed(2));
   const movingSeconds = Math.round(distKm * run.paceSecondsPerKm);
@@ -24,6 +32,7 @@ export const RunCompleteScreen: React.FC = () => {
 
   const handleClaim = () => {
     claimRunRewards();
+    showToast(`Rewards claimed! +${earnedXp} XP & +${earnedCoins} Coins added.`);
     navigate('/');
   };
 

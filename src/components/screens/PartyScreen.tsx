@@ -4,11 +4,12 @@ import { PARTY_INFO } from '../../data/mock';
 import { useAppStore } from '../../store/useAppStore';
 
 export const PartyScreen: React.FC = () => {
-  const { user } = useAppStore();
+  const { user, showToast } = useAppStore();
   const [inviteCopied, setInviteCopied] = useState(false);
 
   const handleInvite = () => {
     setInviteCopied(true);
+    showToast('Coming soon in the full app');
     window.setTimeout(() => setInviteCopied(false), 2200);
   };
 

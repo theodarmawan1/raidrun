@@ -15,7 +15,7 @@ const AVATAR_ROW = [
 
 export const RaidLobbyScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { getBossRemainingHp, bossMaxHp, startRaidRun } = useAppStore();
+  const { getBossRemainingHp, bossMaxHp, startRaidRun, showToast } = useAppStore();
 
   const remainingHp = getBossRemainingHp();
   const hpPercent = Math.round((remainingHp / bossMaxHp) * 100);
@@ -23,6 +23,7 @@ export const RaidLobbyScreen: React.FC = () => {
 
   const handleStartRaid = () => {
     startRaidRun();
+    showToast('Joined Raid Battle! Run to deal damage.');
     navigate('/run');
   };
 

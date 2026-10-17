@@ -20,6 +20,12 @@ export interface WorldPlace3D {
   detailText: string;
 }
 
+export interface RaidGuidanceInfo {
+  distMeters: number;
+  offScreen: boolean;
+  angleDeg: number;
+}
+
 interface HomeIsland3DProps {
   places: WorldPlace3D[];
   activePlaceId: PlaceId | null;
@@ -30,6 +36,8 @@ interface HomeIsland3DProps {
   onProximityPlace: (placeId: PlaceId | null) => void;
   onGroundTap: (walkTarget: { xPct: number; yPx: number }) => void;
   onRegionChange?: (isNorthHalf: boolean) => void;
+  onRaidGuidanceChange?: (info: RaidGuidanceInfo) => void;
+  onLowFpsFallback?: () => void;
   onContextError?: () => void;
 }
 
@@ -412,6 +420,8 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
   onProximityPlace,
   onGroundTap,
   onRegionChange,
+  onRaidGuidanceChange,
+  onLowFpsFallback,
 }) => {
   const gradientMap = useToonGradientMap();
 
@@ -444,9 +454,17 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
   const walkTarget3D = useRef<THREE.Vector3 | null>(null);
   const lastProximityId = useRef<PlaceId | null>(null);
   const lastNorthState = useRef<boolean>(false);
+  const lastRaidGuidance = useRef<{ distMeters: number; offScreen: boolean; angleDeg: number }>({
+    distMeters: 185,
+    offScreen: true,
+    angleDeg: 0,
+  });
 
   const fpsFrames = useRef(0);
   const fpsLastTime = useRef(performance.now());
+  const lowFpsStreak = useRef(0);
+  const lowFpsTriggered = useRef(false);
+  const portalProjVec = useRef(new THREE.Vector3());
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoadNorthRegion(true), 120);
@@ -473,6 +491,19 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
       (window as any).__raidrunFps = currentFps;
       fpsFrames.current = 0;
       fpsLastTime.current = now;
+
+      // Auto-switch to Low quality if FPS stays below 22 for ~3 seconds after warmup
+      if (state.clock.getElapsedTime() > 1.5 && !lowFpsTriggered.current) {
+        if (currentFps < 22 || (window as any).__forceLowFpsTest === true) {
+          lowFpsStreak.current += 1;
+          if (lowFpsStreak.current >= 5) {
+            lowFpsTriggered.current = true;
+            onLowFpsFallback?.();
+          }
+        } else {
+          lowFpsStreak.current = 0;
+        }
+      }
     }
 
     const dt = Math.min(0.05, delta);
@@ -489,7 +520,7 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
 
       if (dist > 0.12) {
         isWalking = true;
-        const walkSpeed = 10.5;
+        const walkSpeed = 13.5;
         const step = Math.min(dist, walkSpeed * dt);
         pos.x += (dx / dist) * step;
         pos.z += (dz / dist) * step;
@@ -595,22 +626,52 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
       northBridgeGroupRef.current.visible = Math.hypot(camPos.x - 0.0, camPos.z - -10.0) < cullRadius;
     }
 
-    // Cull distant HTML marker pills beyond 30 units from camera
+    // Cull distant HTML marker pills beyond 30 units OR when projected under the top overlay bar (y > 0.72)
     const nextVisibleMarkers: PlaceId[] = [];
     for (const p of places) {
       const [px, pz] = getPlaceWorldCoords(p);
-      if (Math.hypot(camPos.x - px, camPos.z - pz) < 33 * Math.max(1, zoom * 0.95)) {
+      portalProjVec.current.set(px, 0.42, pz).project(state.camera);
+      const inViewBounds =
+        portalProjVec.current.z <= 1 &&
+        Math.abs(portalProjVec.current.x) <= 0.88 &&
+        portalProjVec.current.y <= 0.72 &&
+        portalProjVec.current.y >= -0.9;
+      if (
+        inViewBounds &&
+        Math.hypot(camPos.x - px, camPos.z - pz) < 33 * Math.max(1, zoom * 0.95)
+      ) {
         nextVisibleMarkers.push(p.id);
       }
     }
-    if (nextVisibleMarkers.length !== visibleMarkerIds.length) {
+    if (
+      nextVisibleMarkers.length !== visibleMarkerIds.length ||
+      nextVisibleMarkers.some((id, idx) => id !== visibleMarkerIds[idx])
+    ) {
       setVisibleMarkerIds(nextVisibleMarkers);
     }
 
-    // Proximity check to the 4 places on land
+    // Live distance to Raid Portal & off-screen indicator check
+    const [raidX, raidZ] = getPlaceWorldCoords(places[0]);
+    const rawRaidDist = Math.hypot(raidX - pos.x, raidZ - pos.z);
+    const distMeters = Math.max(0, Math.round(Math.max(0, rawRaidDist - 1.15) * 9.5));
+
+    const isOffScreen = !nextVisibleMarkers.includes('raid');
+    const angleDeg = Math.round((Math.atan2(raidX - pos.x, -(raidZ - pos.z)) * 180) / Math.PI);
+
+    if (
+      Math.abs(distMeters - lastRaidGuidance.current.distMeters) >= 1 ||
+      isOffScreen !== lastRaidGuidance.current.offScreen ||
+      Math.abs(angleDeg - lastRaidGuidance.current.angleDeg) >= 8
+    ) {
+      lastRaidGuidance.current = { distMeters, offScreen: isOffScreen, angleDeg };
+      onRaidGuidanceChange?.(lastRaidGuidance.current);
+    }
+
+    // Proximity check to the 4 places on land (skip intermediate places while actively walking to a chosen place)
     let nearestPlace: PlaceId | null = null;
     let bestDist = Infinity;
     for (const p of places) {
+      if (isWalking && activePlaceId && p.id !== activePlaceId) continue;
       const [px, pz] = getPlaceWorldCoords(p);
       const d = Math.hypot(pos.x - px, pos.z - pz);
       if (d <= 2.75 && d < bestDist) {
@@ -619,9 +680,11 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
       }
     }
 
-    if (nearestPlace !== lastProximityId.current) {
-      lastProximityId.current = nearestPlace;
-      onProximityPlace(nearestPlace);
+    if (!isWalking || nearestPlace === activePlaceId) {
+      if (nearestPlace !== lastProximityId.current) {
+        lastProximityId.current = nearestPlace;
+        onProximityPlace(nearestPlace);
+      }
     }
 
     const isNorth = pos.z < -5.5;

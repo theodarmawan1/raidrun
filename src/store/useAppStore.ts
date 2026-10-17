@@ -34,6 +34,8 @@ interface AppState {
   raidSubTab: 'lobby' | 'deck';
   hubTab: 'overview' | 'raids' | 'routes' | 'events' | 'rsvp';
   qualityPreset: 'high' | 'low';
+  toastMessage: string | null;
+  introDismissed: boolean;
 
   // Computed / Getters
   getBossRemainingHp: () => number;
@@ -48,6 +50,9 @@ interface AppState {
   toggleRsvp: (eventId: string) => void;
   rsvpEvent: (eventId: string) => void;
   setQualityPreset: (preset: 'high' | 'low') => void;
+  showToast: (message: string) => void;
+  clearToast: () => void;
+  dismissIntro: () => void;
 
   // Raid / Run loop actions
   startRaidRun: () => void;
@@ -58,6 +63,8 @@ interface AppState {
   leaveRaid: () => void;
   claimRunRewards: () => void;
 }
+
+let toastTimer: number | undefined;
 
 export const useAppStore = create<AppState>((set, get) => ({
   user: INITIAL_USER,
@@ -81,6 +88,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   raidSubTab: 'lobby',
   hubTab: 'overview',
   qualityPreset: 'high',
+  toastMessage: null,
+  introDismissed:
+    typeof window !== 'undefined' &&
+    window.sessionStorage.getItem('raidrun_intro_seen') === '1',
 
   getBossRemainingHp: () => {
     const state = get();
@@ -120,7 +131,32 @@ export const useAppStore = create<AppState>((set, get) => ({
   setRaidSubTab: (tab) => set({ raidSubTab: tab }),
   setHubTab: (tab) => set({ hubTab: tab }),
   setSelectedMarker: (marker) => set({ selectedMarker: marker }),
-  toggleRsvp: (eventId) =>
+  showToast: (message) => {
+    if (typeof window !== 'undefined' && toastTimer) {
+      window.clearTimeout(toastTimer);
+    }
+    set({ toastMessage: message });
+    if (typeof window !== 'undefined') {
+      toastTimer = window.setTimeout(() => {
+        set({ toastMessage: null });
+      }, 2800);
+    }
+  },
+  clearToast: () => {
+    if (typeof window !== 'undefined' && toastTimer) {
+      window.clearTimeout(toastTimer);
+    }
+    set({ toastMessage: null });
+  },
+  dismissIntro: () => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('raidrun_intro_seen', '1');
+    }
+    set({ introDismissed: true });
+  },
+  toggleRsvp: (eventId) => {
+    const target = get().events.find((e) => e.id === eventId);
+    const willBeRsvped = target ? !target.rsvped : false;
     set((state) => ({
       events: state.events.map((ev) =>
         ev.id === eventId
@@ -131,8 +167,12 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
           : ev
       ),
-    })),
-  rsvpEvent: (eventId) =>
+    }));
+    get().showToast(
+      willBeRsvped ? 'RSVP confirmed! Pass saved to My RSVPs.' : 'RSVP cancelled.'
+    );
+  },
+  rsvpEvent: (eventId) => {
     set((state) => ({
       events: state.events.map((ev) =>
         ev.id === eventId
@@ -143,7 +183,9 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
           : ev
       ),
-    })),
+    }));
+    get().showToast('RSVP confirmed! Pass saved to My RSVPs.');
+  },
   setQualityPreset: (preset) => set({ qualityPreset: preset }),
 
   startRaidRun: () =>

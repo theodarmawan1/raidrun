@@ -119,31 +119,46 @@ const EventRowThumb: React.FC<{ id: string }> = ({ id }) => {
   );
 };
 
-const QrPlaceholder: React.FC = () => (
-  <svg width="58" height="58" viewBox="0 0 64 64" aria-label="QR Code Placeholder">
-    <rect width="64" height="64" rx="6" fill="#ffffff" />
-    <rect x="6" y="6" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
-    <rect x="11" y="11" width="8" height="8" fill="#102a43" />
-    <rect x="40" y="6" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
-    <rect x="45" y="11" width="8" height="8" fill="#102a43" />
-    <rect x="6" y="40" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
-    <rect x="11" y="45" width="8" height="8" fill="#102a43" />
-    <g fill="#102a43">
-      <rect x="28" y="8" width="6" height="6" />
-      <rect x="28" y="18" width="6" height="12" />
-      <rect x="8" y="28" width="12" height="6" />
-      <rect x="26" y="34" width="10" height="6" />
-      <rect x="40" y="28" width="6" height="12" />
-      <rect x="50" y="30" width="8" height="6" />
-      <rect x="30" y="44" width="8" height="14" />
-      <rect x="42" y="46" width="14" height="6" />
-    </g>
-  </svg>
+const QrPlaceholder: React.FC<{ onClick?: () => void }> = ({ onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="touch-target"
+    aria-label="QR Code Placeholder"
+    style={{
+      minWidth: 58,
+      minHeight: 58,
+      padding: 0,
+      borderRadius: 6,
+      background: 'transparent',
+      border: 'none',
+    }}
+  >
+    <svg width="58" height="58" viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" rx="6" fill="#ffffff" />
+      <rect x="6" y="6" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
+      <rect x="11" y="11" width="8" height="8" fill="#102a43" />
+      <rect x="40" y="6" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
+      <rect x="45" y="11" width="8" height="8" fill="#102a43" />
+      <rect x="6" y="40" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
+      <rect x="11" y="45" width="8" height="8" fill="#102a43" />
+      <g fill="#102a43">
+        <rect x="28" y="8" width="6" height="6" />
+        <rect x="28" y="18" width="6" height="12" />
+        <rect x="8" y="28" width="12" height="6" />
+        <rect x="26" y="34" width="10" height="6" />
+        <rect x="40" y="28" width="6" height="12" />
+        <rect x="50" y="30" width="8" height="6" />
+        <rect x="30" y="44" width="8" height="14" />
+        <rect x="42" y="46" width="14" height="6" />
+      </g>
+    </svg>
+  </button>
 );
 
 export const HubScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { user, hubTab, setHubTab, events, toggleRsvp } = useAppStore();
+  const { user, hubTab, setHubTab, events, toggleRsvp, showToast } = useAppStore();
   const [eventFilter, setEventFilter] = useState<EventFilter>('All');
   const [routeToast, setRouteToast] = useState(false);
 
@@ -714,14 +729,19 @@ export const HubScreen: React.FC = () => {
 
           {/* Community Routes List */}
           {COMMUNITY_ROUTES.map((route) => (
-            <div
+            <button
               key={route.id}
-              className="frosted-card"
+              type="button"
+              onClick={() => showToast('Coming soon in the full app')}
+              className="frosted-card touch-target"
               style={{
+                width: '100%',
+                minHeight: 54,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '12px 14px',
+                textAlign: 'left',
               }}
             >
               <div>
@@ -759,13 +779,14 @@ export const HubScreen: React.FC = () => {
                   />
                 ))}
               </div>
-            </div>
+            </button>
           ))}
 
           <button
             type="button"
             onClick={() => {
               setRouteToast(true);
+              showToast('Coming soon in the full app');
               window.setTimeout(() => setRouteToast(false), 2200);
             }}
             className="btn-primary-cta touch-target"
@@ -775,7 +796,7 @@ export const HubScreen: React.FC = () => {
               letterSpacing: '0.03em',
             }}
           >
-            {routeToast ? 'ROUTE BUILDER SAVED (PLACEHOLDER)' : 'CREATE NEW ROUTE'}
+            {routeToast ? 'COMING SOON IN THE FULL APP' : 'CREATE NEW ROUTE'}
           </button>
         </section>
       )}
@@ -1012,7 +1033,7 @@ export const HubScreen: React.FC = () => {
                     flexShrink: 0,
                   }}
                 >
-                  <QrPlaceholder />
+                  <QrPlaceholder onClick={() => showToast('Coming soon in the full app')} />
                   <button
                     type="button"
                     onClick={() => toggleRsvp(ev.id)}

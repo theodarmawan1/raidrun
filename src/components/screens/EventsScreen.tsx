@@ -98,32 +98,47 @@ const EventVectorThumb: React.FC<{ id: string; large?: boolean }> = ({ id, large
   );
 };
 
-const PseudoQrCode: React.FC = () => (
-  <svg width="64" height="64" viewBox="0 0 64 64" aria-label="Check-in QR Code">
-    <rect width="64" height="64" rx="8" fill="#ffffff" />
-    <rect x="6" y="6" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
-    <rect x="11" y="11" width="8" height="8" fill="#102a43" />
-    <rect x="40" y="6" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
-    <rect x="45" y="11" width="8" height="8" fill="#102a43" />
-    <rect x="6" y="40" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
-    <rect x="11" y="45" width="8" height="8" fill="#102a43" />
-    <g fill="#102a43">
-      <rect x="28" y="8" width="6" height="6" />
-      <rect x="28" y="18" width="6" height="12" />
-      <rect x="8" y="28" width="12" height="6" />
-      <rect x="26" y="34" width="10" height="6" />
-      <rect x="40" y="28" width="6" height="12" />
-      <rect x="50" y="30" width="8" height="6" />
-      <rect x="30" y="44" width="8" height="14" />
-      <rect x="42" y="46" width="14" height="6" />
-      <rect x="48" y="54" width="10" height="4" />
-    </g>
-  </svg>
+const PseudoQrCode: React.FC<{ onClick?: () => void }> = ({ onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="touch-target"
+    aria-label="Check-in QR Code"
+    style={{
+      minWidth: 64,
+      minHeight: 64,
+      padding: 0,
+      borderRadius: 8,
+      background: 'transparent',
+      border: 'none',
+    }}
+  >
+    <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" rx="8" fill="#ffffff" />
+      <rect x="6" y="6" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
+      <rect x="11" y="11" width="8" height="8" fill="#102a43" />
+      <rect x="40" y="6" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
+      <rect x="45" y="11" width="8" height="8" fill="#102a43" />
+      <rect x="6" y="40" width="18" height="18" fill="none" stroke="#102a43" strokeWidth="4" />
+      <rect x="11" y="45" width="8" height="8" fill="#102a43" />
+      <g fill="#102a43">
+        <rect x="28" y="8" width="6" height="6" />
+        <rect x="28" y="18" width="6" height="12" />
+        <rect x="8" y="28" width="12" height="6" />
+        <rect x="26" y="34" width="10" height="6" />
+        <rect x="40" y="28" width="6" height="12" />
+        <rect x="50" y="30" width="8" height="6" />
+        <rect x="30" y="44" width="8" height="14" />
+        <rect x="42" y="46" width="14" height="6" />
+        <rect x="48" y="54" width="10" height="4" />
+      </g>
+    </svg>
+  </button>
 );
 
 export const EventsScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { events, rsvpEvent, toggleRsvp, setHubTab } = useAppStore();
+  const { events, rsvpEvent, toggleRsvp, setHubTab, showToast } = useAppStore();
 
   const [subView, setSubView] = useState<EventsSubView>('discovery');
   const [categoryFilter, setCategoryFilter] = useState<EventCategoryFilter>('All');
@@ -759,7 +774,7 @@ export const EventsScreen: React.FC = () => {
                     flexShrink: 0,
                   }}
                 >
-                  <PseudoQrCode />
+                  <PseudoQrCode onClick={() => showToast('Coming soon in the full app')} />
                   <button
                     type="button"
                     onClick={() => toggleRsvp(ev.id)}
@@ -899,7 +914,7 @@ export const EventsScreen: React.FC = () => {
                   {rsvpModalEvent.participants.toLocaleString()} Runners Joined
                 </div>
               </div>
-              <PseudoQrCode />
+              <PseudoQrCode onClick={() => showToast('Coming soon in the full app')} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, width: '100%' }}>

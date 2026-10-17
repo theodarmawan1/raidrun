@@ -109,11 +109,42 @@ class WebGLErrorBoundary extends React.Component<
 
 export const MapPlaceholderScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { user, setRaidSubTab, qualityPreset, setQualityPreset } = useAppStore();
+  const {
+    user,
+    setRaidSubTab,
+    qualityPreset,
+    setQualityPreset,
+    showToast,
+    introDismissed,
+  } = useAppStore();
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [viewportHeight, setViewportHeight] = useState(440);
   const [webglAvailable, setWebglAvailable] = useState<boolean>(() => checkWebGLSupport());
+
+  // First-time coachmark "Tap the ground to walk" (once per session, disappears after first move or 6s)
+  const [walkHintVisible, setWalkHintVisible] = useState<boolean>(
+    () =>
+      typeof window !== 'undefined' &&
+      window.sessionStorage.getItem('raidrun_walk_hint_seen') !== '1'
+  );
+
+  const dismissWalkHint = () => {
+    setWalkHintVisible((prev) => {
+      if (prev && typeof window !== 'undefined') {
+        window.sessionStorage.setItem('raidrun_walk_hint_seen', '1');
+      }
+      return false;
+    });
+  };
+
+  useEffect(() => {
+    if (!introDismissed || !walkHintVisible) return;
+    const timer = window.setTimeout(() => {
+      dismissWalkHint();
+    }, 6000);
+    return () => window.clearTimeout(timer);
+  }, [introDismissed, walkHintVisible]);
 
   // Mint starts on the path at (48%, 695px) — free walking never adds distance, XP, or coins
   const [mintPos, setMintPos] = useState<{ xPct: number; yPx: number }>({
@@ -123,7 +154,16 @@ export const MapPlaceholderScreen: React.FC = () => {
   const [targetPos, setTargetPos] = useState<{ xPct: number; yPx: number } | null>(null);
   const [activePlaceId, setActivePlaceId] = useState<PlaceId | null>(null);
   const [dismissedPlaceId, setDismissedPlaceId] = useState<PlaceId | null>(null);
-  const [isNorthRegion3D, setIsNorthRegion3D] = useState(false);
+  const [, setIsNorthRegion3D] = useState(false);
+  const [raidGuidance3D, setRaidGuidance3D] = useState<{
+    distMeters: number;
+    offScreen: boolean;
+    angleDeg: number;
+  }>({
+    distMeters: 185,
+    offScreen: true,
+    angleDeg: 0,
+  });
 
   const use3DWorld = qualityPreset === 'high' && webglAvailable;
 
@@ -208,8 +248,23 @@ export const MapPlaceholderScreen: React.FC = () => {
   const maxCameraTop = Math.max(0, WORLD_HEIGHT - viewportHeight);
   const cameraTop = Math.max(0, Math.min(maxCameraTop, rawCameraTop));
 
+  // 2D distance & off-screen computation for Raid Portal
+  const raidPlace2D = WORLD_PLACES[0];
+  const raidDxPx2D = ((raidPlace2D.xPct - mintPos.xPct) / 100) * 340;
+  const raidDyPx2D = raidPlace2D.yPx - mintPos.yPx;
+  const rawDistPx2D = Math.hypot(raidDxPx2D, raidDyPx2D);
+  const distMeters2D = Math.max(0, Math.round(Math.max(0, rawDistPx2D - 26) * 0.4));
+  const offScreen2D =
+    raidPlace2D.yPx < cameraTop + 28 || raidPlace2D.yPx > cameraTop + viewportHeight - 28;
+  const angleDeg2D = Math.round((Math.atan2(raidDxPx2D, -raidDyPx2D) * 180) / Math.PI);
+
+  const raidDistMeters = use3DWorld ? raidGuidance3D.distMeters : distMeters2D;
+  const isRaidOffScreen = use3DWorld ? raidGuidance3D.offScreen : offScreen2D;
+  const raidArrowAngleDeg = use3DWorld ? raidGuidance3D.angleDeg : angleDeg2D;
+
   const handleGroundTap2D = (e: React.MouseEvent<HTMLDivElement>) => {
     if (use3DWorld || !viewportRef.current) return;
+    dismissWalkHint();
     const rect = viewportRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickYInViewport = e.clientY - rect.top;
@@ -229,6 +284,7 @@ export const MapPlaceholderScreen: React.FC = () => {
 
   const handleMarkerTap2D = (e: React.MouseEvent, place: WorldPlace3D) => {
     e.stopPropagation();
+    dismissWalkHint();
     setDismissedPlaceId(null);
     setActivePlaceId(place.id);
     setTargetPos({
@@ -239,11 +295,11 @@ export const MapPlaceholderScreen: React.FC = () => {
 
   const handleJoinRaid = () => {
     setRaidSubTab('lobby');
+    showToast('Joined Raid Lobby — Ember Titan');
     navigate('/raid');
   };
 
   const activePlace = WORLD_PLACES.find((p) => p.id === activePlaceId) || null;
-  const showWalkSouthButton = use3DWorld ? isNorthRegion3D : mintPos.yPx < 480;
 
   // Existing 2D Home Map Layer (used when Quality is Low, WebGL is unavailable, or while 3D chunk loads)
   const renderFallback2DLayer = () => (
@@ -600,7 +656,10 @@ export const MapPlaceholderScreen: React.FC = () => {
             flexShrink: 0,
           }}
         >
-          <div
+          <button
+            type="button"
+            onClick={() => showToast('Coming soon in the full app')}
+            className="touch-target"
             style={{
               width: 44,
               height: 44,
@@ -616,7 +675,7 @@ export const MapPlaceholderScreen: React.FC = () => {
             aria-label="Weather 28 degrees sunny"
           >
             <CloudSun size={21} color="#0A878F" />
-          </div>
+          </button>
           <div
             style={{
               display: 'inline-flex',
@@ -698,6 +757,7 @@ export const MapPlaceholderScreen: React.FC = () => {
                 targetPos={targetPos}
                 qualityPreset={qualityPreset}
                 onSelectPlace={(placeId, walkTarget) => {
+                  dismissWalkHint();
                   setDismissedPlaceId(null);
                   setActivePlaceId(placeId);
                   setTargetPos(walkTarget);
@@ -712,11 +772,17 @@ export const MapPlaceholderScreen: React.FC = () => {
                   }
                 }}
                 onGroundTap={(walkTarget) => {
+                  dismissWalkHint();
                   setDismissedPlaceId(null);
                   setActivePlaceId(null);
                   setTargetPos(walkTarget);
                 }}
                 onRegionChange={(isNorth) => setIsNorthRegion3D(isNorth)}
+                onRaidGuidanceChange={(info) => setRaidGuidance3D(info)}
+                onLowFpsFallback={() => {
+                  setQualityPreset('low');
+                  showToast('Low frame rate detected — switched to Low quality (2D map)');
+                }}
                 onContextError={() => setWebglAvailable(false)}
               />
             </Suspense>
@@ -725,7 +791,7 @@ export const MapPlaceholderScreen: React.FC = () => {
           renderFallback2DLayer()
         )}
 
-        {/* Top Overlay: Quick Walk-To Bar + Quality High/Low Toggle */}
+        {/* Top Overlay: Always-Visible "Walk to Raid Plaza" Guidance Pill + Quality High/Low Toggle */}
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
@@ -741,87 +807,127 @@ export const MapPlaceholderScreen: React.FC = () => {
             pointerEvents: 'none',
           }}
         >
-          {!showWalkSouthButton ? (
-            <button
-              type="button"
-              onClick={() => {
-                const raidPlace = WORLD_PLACES[0];
-                setDismissedPlaceId(null);
-                setActivePlaceId('raid');
-                setTargetPos({ xPct: raidPlace.xPct, yPx: raidPlace.yPx + 22 });
-              }}
-              className="touch-target"
-              aria-label="Walk to Raid Portal Plaza"
-              style={{
-                pointerEvents: 'auto',
-                minHeight: 44,
-                padding: '0 11px',
-                borderRadius: 'var(--radius-pill)',
-                background: 'rgba(255, 255, 255, 0.94)',
-                border: '1.5px solid #ff3b9a',
-                boxShadow: 'var(--shadow-card)',
-                fontSize: '0.69rem',
-                fontWeight: 900,
-                color: 'var(--color-text-primary)',
-                gap: 5,
-              }}
-            >
-              <Compass size={14} color="#ff3b9a" />
-              <span>Walk to Raid Plaza ↑</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setDismissedPlaceId(null);
-                setActivePlaceId(null);
-                setTargetPos({ xPct: 48, yPx: 695 });
-              }}
-              className="touch-target"
-              aria-label="Walk South to Park Cafe"
-              style={{
-                pointerEvents: 'auto',
-                minHeight: 44,
-                padding: '0 11px',
-                borderRadius: 'var(--radius-pill)',
-                background: 'rgba(255, 255, 255, 0.94)',
-                border: '1.5px solid var(--color-primary)',
-                boxShadow: 'var(--shadow-card)',
-                fontSize: '0.69rem',
-                fontWeight: 900,
-                color: 'var(--color-text-primary)',
-                gap: 5,
-              }}
-            >
-              <Compass size={14} color="#00b8a9" />
-              <span>Walk South ↓</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              dismissWalkHint();
+              const raidPlace = WORLD_PLACES[0];
+              setDismissedPlaceId(null);
+              setActivePlaceId('raid');
+              setTargetPos({ xPct: raidPlace.xPct, yPx: raidPlace.yPx + 22 });
+            }}
+            className="touch-target"
+            aria-label={`Walk to Raid Plaza, ${raidDistMeters} meters away`}
+            style={{
+              pointerEvents: 'auto',
+              minHeight: 44,
+              padding: '0 10px',
+              borderRadius: 'var(--radius-pill)',
+              background: 'rgba(255, 255, 255, 0.95)',
+              border: '1.5px solid #ff3b9a',
+              boxShadow: 'var(--shadow-card)',
+              fontSize: '0.68rem',
+              fontWeight: 900,
+              color: 'var(--color-text-primary)',
+              gap: 5,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <Compass size={13} color="#ff3b9a" style={{ flexShrink: 0 }} />
+            <span>Walk to Raid Plaza • {raidDistMeters}m</span>
+            {isRaidOffScreen && (
+              <span
+                aria-label="Portal off-screen direction"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  background: '#ff3b9a',
+                  color: '#ffffff',
+                  fontSize: '0.68rem',
+                  fontWeight: 900,
+                  transform: `rotate(${raidArrowAngleDeg}deg)`,
+                  transition: 'transform 0.2s ease',
+                  flexShrink: 0,
+                }}
+              >
+                ↑
+              </span>
+            )}
+          </button>
 
           {/* Quality Setting High (3D) / Low (2D Fallback) Toggle */}
           <button
             type="button"
-            onClick={() => setQualityPreset(qualityPreset === 'high' ? 'low' : 'high')}
+            onClick={() => {
+              const nextPreset = qualityPreset === 'high' ? 'low' : 'high';
+              setQualityPreset(nextPreset);
+              showToast(
+                nextPreset === 'high'
+                  ? 'Switched to High quality (3D World)'
+                  : 'Switched to Low quality (2D Map)'
+              );
+            }}
             className="touch-target"
             aria-label={`Quality setting ${qualityPreset === 'high' ? 'High 3D' : 'Low 2D fallback'}`}
             style={{
               pointerEvents: 'auto',
               minHeight: 44,
-              padding: '0 11px',
+              padding: '0 10px',
               borderRadius: 'var(--radius-pill)',
               background: 'rgba(255, 255, 255, 0.94)',
               border: `1.5px solid ${use3DWorld ? '#00b8a9' : '#64748b'}`,
               boxShadow: 'var(--shadow-card)',
-              fontSize: '0.69rem',
+              fontSize: '0.68rem',
               fontWeight: 900,
               color: 'var(--color-text-primary)',
-              gap: 5,
+              gap: 4,
+              whiteSpace: 'nowrap',
             }}
           >
             <Sparkles size={13} color={use3DWorld ? '#00b8a9' : '#64748b'} />
             <span>{use3DWorld ? 'Quality: High (3D)' : 'Quality: Low (2D)'}</span>
           </button>
         </div>
+
+        {/* First-time Hint Coachmark: "Tap the ground to walk" (disappears after first move or 6s, once per session) */}
+        {walkHintVisible && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              position: 'absolute',
+              left: 16,
+              right: 16,
+              bottom: activePlace ? 128 : 16,
+              zIndex: 9,
+              display: 'flex',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+            }}
+          >
+            <div
+              style={{
+                padding: '7px 14px',
+                borderRadius: 'var(--radius-pill)',
+                background: 'rgba(16, 42, 67, 0.9)',
+                color: '#ffffff',
+                border: '1.5px solid #38f8c2',
+                boxShadow: '0 8px 20px rgba(16, 42, 67, 0.28)',
+                fontSize: '0.76rem',
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span>👆 Tap the ground to walk</span>
+            </div>
+          </div>
+        )}
 
         {/* Bottom-Right Flag Button (opens Hub screen) */}
         <button
