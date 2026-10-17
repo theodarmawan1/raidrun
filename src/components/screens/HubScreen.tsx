@@ -161,6 +161,8 @@ export const HubScreen: React.FC = () => {
         style={{
           position: 'relative',
           height: 148,
+          minHeight: 148,
+          flexShrink: 0,
           borderRadius: 'var(--radius-card)',
           overflow: 'hidden',
           border: '1.5px solid var(--color-border-card)',
@@ -244,6 +246,7 @@ export const HubScreen: React.FC = () => {
           display: 'grid',
           gridTemplateColumns: 'repeat(5, 1fr)',
           gap: 2,
+          flexShrink: 0,
         }}
       >
         {HUB_TABS.map((t) => {
@@ -272,9 +275,25 @@ export const HubScreen: React.FC = () => {
         })}
       </nav>
 
-      {/* TAB 1: OVERVIEW (15 Day Streak, Daily Quests, Weekly Quest — design/17.png) */}
-      {hubTab === 'overview' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Scrollable Tab Content Area below pinned Banner + Tab Bar */}
+      <div
+        className="hub-tab-scroll"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          paddingBottom: 12,
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
+        {/* TAB 1: OVERVIEW (15 Day Streak, Daily Quests, Weekly Quest — design/17.png) */}
+        {hubTab === 'overview' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {/* 15 Day Streak Card */}
           <section className="frosted-card" style={{ padding: '12px 14px' }}>
             <h2
@@ -1028,6 +1047,14 @@ export const HubScreen: React.FC = () => {
           </p>
         </section>
       )}
+      </div>
+      <style>{`
+        .hub-tab-scroll::-webkit-scrollbar {
+          display: none;
+          width: 0;
+          height: 0;
+        }
+      `}</style>
     </>
   );
 };
