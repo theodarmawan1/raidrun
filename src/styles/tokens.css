@@ -1,0 +1,70 @@
+:root {
+  /* Typography */
+  --font-sans: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Primary Mint & Teal Palette (extracted from design/1.png–17.png) */
+  --color-primary: #00b8a9;
+  --color-primary-dark: #0a878f;
+  --color-primary-deep: #066168;
+  --color-primary-light: #4ce0b3;
+  --color-primary-glow: #38f8c2;
+  --color-primary-soft: #e0fbf6;
+
+  /* Accent & Boss HP Palette */
+  --color-accent-orange: #ff8a2b;
+  --color-accent-pink: #ff3b9a;
+  --color-accent-gold: #ffc837;
+  --color-accent-sky: #4cc9f0;
+
+  /* Semantic Status Colors */
+  --color-success-bg: #d5f8e5;
+  --color-success-text: #0c9d58;
+  --color-danger-bg: #ffd8d8;
+  --color-danger-text: #d93025;
+  --color-gold-bg: #fff3d1;
+  --color-gold-text: #b7791f;
+
+  /* Text Colors (WCAG AA >= 4.5:1 contrast on light surfaces) */
+  --color-text-primary: #102a43;
+  --color-text-secondary: #334e68;
+  --color-text-muted: #4a637d;
+  --color-text-on-primary: #ffffff;
+
+  /* Surfaces & Backgrounds */
+  --color-bg-sky: linear-gradient(180deg, #74c0fc 0%, #c5f6fa 45%, #f0fdf9 100%);
+  --color-bg-soft: linear-gradient(180deg, #e3fafc 0%, #f4fdfb 55%, #e6fcf5 100%);
+  --color-surface-card: rgba(255, 255, 255, 0.92);
+  --color-surface-card-solid: #ffffff;
+  --color-surface-elevated: rgba(255, 255, 255, 0.97);
+  --color-border-card: rgba(255, 255, 255, 0.85);
+  --color-border-subtle: rgba(16, 42, 67, 0.08);
+
+  /* Gradients */
+  --gradient-cta: linear-gradient(180deg, #1ce5c8 0%, #00a8a8 100%);
+  --gradient-active-tab: linear-gradient(180deg, #25d0c4 0%, #0d8a94 100%);
+  --gradient-boss-hp: linear-gradient(90deg, #ff3b9a 0%, #ff8a2b 60%, #ffc837 100%);
+  --gradient-xp-bar: linear-gradient(90deg, #1ce5c8 0%, #4ce0b3 100%);
+
+  /* Radii */
+  --radius-xl: 28px;
+  --radius-card: 24px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 9999px;
+
+  /* Shadows */
+  --shadow-card: 0 8px 24px rgba(16, 42, 67, 0.08);
+  --shadow-floating: 0 12px 28px rgba(10, 135, 143, 0.16);
+  --shadow-tabbar: 0 10px 30px rgba(16, 42, 67, 0.14);
+  --shadow-cta: 0 4px 0 #057a80, 0 8px 20px rgba(0, 184, 169, 0.32);
+
+  /* Safe Areas & Layout Spacing */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --page-padding: 16px;
+  --touch-target-min: 44px;
+  --tabbar-height: 76px;
+}
