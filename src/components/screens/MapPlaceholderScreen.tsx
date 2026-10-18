@@ -167,15 +167,6 @@ export const MapPlaceholderScreen: React.FC = () => {
   const [activePlaceId, setActivePlaceId] = useState<PlaceId | null>(null);
   const [dismissedPlaceId, setDismissedPlaceId] = useState<PlaceId | null>(null);
   const [, setIsNorthRegion3D] = useState(false);
-  const [raidGuidance3D, setRaidGuidance3D] = useState<{
-    distMeters: number;
-    offScreen: boolean;
-    angleDeg: number;
-  }>({
-    distMeters: placeDistances[guidedPlaceId],
-    offScreen: true,
-    angleDeg: 0,
-  });
 
   const use3DWorld = qualityPreset === 'high' && webglAvailable;
 
@@ -266,15 +257,17 @@ export const MapPlaceholderScreen: React.FC = () => {
   const maxCameraTop = Math.max(0, WORLD_HEIGHT - viewportHeight);
   const cameraTop = Math.max(0, Math.min(maxCameraTop, rawCameraTop));
 
-  // Guided place info (uses exact same placeDistances as Explore Map card)
+  // Active guide target (set by "Show the route"; default raid portal). Same placeDistances as Explore Map.
   const guidedPlace = WORLD_PLACES.find((p) => p.id === guidedPlaceId) || WORLD_PLACES[0];
   const guidedDxPx2D = ((guidedPlace.xPct - mintPos.xPct) / 100) * 340;
   const guidedDyPx2D = guidedPlace.yPx - mintPos.yPx;
-  const angleDeg2D = Math.round((Math.atan2(guidedDxPx2D, -guidedDyPx2D) * 180) / Math.PI);
+  // 0deg = screen-up, clockwise; used by the 2D fallback arrow next to the avatar
+  const angleDeg2D = (Math.atan2(guidedDxPx2D, -guidedDyPx2D) * 180) / Math.PI;
 
+  const ARRIVAL_RADIUS_METERS = 15;
   const guidedDistMeters = placeDistances[guidedPlace.id];
-  const guidedArrowAngleDeg = use3DWorld ? raidGuidance3D.angleDeg : angleDeg2D;
-  const isCloseToRaidPortal = placeDistances.raid <= 15;
+  const hasArrivedAtGuide = guidedDistMeters <= ARRIVAL_RADIUS_METERS;
+  const isCloseToRaidPortal = placeDistances.raid <= ARRIVAL_RADIUS_METERS;
 
   const handleGroundTap2D = (e: React.MouseEvent<HTMLDivElement>) => {
     if (use3DWorld || !viewportRef.current) return;
@@ -299,7 +292,6 @@ export const MapPlaceholderScreen: React.FC = () => {
   const handleMarkerTap2D = (e: React.MouseEvent, place: WorldPlace3D) => {
     e.stopPropagation();
     dismissWalkHint();
-    setGuidedPlaceId(place.id);
     setDismissedPlaceId(null);
     setActivePlaceId(place.id);
     setTargetPos({
@@ -559,6 +551,44 @@ export const MapPlaceholderScreen: React.FC = () => {
           </g>
         </svg>
       </div>
+
+      {/* 2D fallback guide arrow: sits next to the avatar and points toward the active target */}
+      {!hasArrivedAtGuide && (
+        <div
+          aria-label="Direction arrow to target"
+          style={{
+            position: 'absolute',
+            left: `${mintPos.xPct}%`,
+            top: mintPos.yPx,
+            width: 0,
+            height: 0,
+            pointerEvents: 'none',
+            zIndex: 6,
+          }}
+        >
+          <svg
+            width="34"
+            height="34"
+            viewBox="0 0 34 34"
+            style={{
+              position: 'absolute',
+              left: -17 + Math.sin((angleDeg2D * Math.PI) / 180) * 56,
+              top: -17 - 34 - Math.cos((angleDeg2D * Math.PI) / 180) * 56,
+              transform: `rotate(${angleDeg2D}deg)`,
+              filter: 'drop-shadow(0 2px 3px rgba(16, 42, 67, 0.35))',
+            }}
+          >
+            <path
+              className="guide-arrow-2d-pulse"
+              d="M17 3 L30 19 L22 19 L22 31 L12 31 L12 19 L4 19 Z"
+              fill={guidedPlace.accentColor}
+              stroke="#ffffff"
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      )}
     </div>
   );
 
@@ -782,7 +812,6 @@ export const MapPlaceholderScreen: React.FC = () => {
                 qualityPreset={qualityPreset}
                 onSelectPlace={(placeId, walkTarget) => {
                   dismissWalkHint();
-                  setGuidedPlaceId(placeId);
                   setDismissedPlaceId(null);
                   setActivePlaceId(placeId);
                   setTargetPos(walkTarget);
@@ -803,7 +832,6 @@ export const MapPlaceholderScreen: React.FC = () => {
                   setTargetPos(walkTarget);
                 }}
                 onRegionChange={(isNorth) => setIsNorthRegion3D(isNorth)}
-                onRaidGuidanceChange={(info) => setRaidGuidance3D(info)}
                 onMintWorldMove={(x, z) => setMintWorldPos(x, z)}
                 onLowFpsFallback={() => {
                   setQualityPreset('low');
@@ -817,7 +845,7 @@ export const MapPlaceholderScreen: React.FC = () => {
           renderFallback2DLayer()
         )}
 
-        {/* Top Overlay: Always-Visible "Walk to ..." Guidance Pill + Quality High/Low Toggle */}
+        {/* Top Overlay: Quality High/Low Toggle (guidance is now a 3D / 2D arrow, no text pill) */}
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
@@ -828,69 +856,11 @@ export const MapPlaceholderScreen: React.FC = () => {
             zIndex: 8,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'flex-end',
             gap: 6,
             pointerEvents: 'none',
           }}
         >
-          <button
-            type="button"
-            onClick={() => {
-              dismissWalkHint();
-              setDismissedPlaceId(null);
-              setActivePlaceId(guidedPlace.id);
-              setTargetPos({
-                xPct:
-                  guidedPlace.id === 'raid'
-                    ? guidedPlace.xPct
-                    : Math.max(24, Math.min(76, guidedPlace.xPct - 6)),
-                yPx: guidedPlace.yPx + 22,
-              });
-            }}
-            className="touch-target"
-            aria-label={`Walk to ${GUIDE_LABELS[guidedPlace.id]}, ${guidedDistMeters} meters away`}
-            style={{
-              pointerEvents: 'auto',
-              minHeight: 44,
-              padding: '0 10px',
-              borderRadius: 'var(--radius-pill)',
-              background: 'rgba(255, 255, 255, 0.95)',
-              border: `1.5px solid ${guidedPlace.accentColor}`,
-              boxShadow: 'var(--shadow-card)',
-              fontSize: '0.68rem',
-              fontWeight: 900,
-              color: 'var(--color-text-primary)',
-              gap: 5,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <Compass size={13} color={guidedPlace.accentColor} style={{ flexShrink: 0 }} />
-            <span>
-              Walk to {GUIDE_LABELS[guidedPlace.id]} • {guidedDistMeters}m
-            </span>
-            {guidedDistMeters > 0 && (
-              <span
-                aria-label="Target direction arrow"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
-                  background: guidedPlace.accentColor,
-                  color: '#ffffff',
-                  fontSize: '0.68rem',
-                  fontWeight: 900,
-                  transform: `rotate(${guidedArrowAngleDeg}deg)`,
-                  transition: 'transform 0.2s ease',
-                  flexShrink: 0,
-                }}
-              >
-                ↑
-              </span>
-            )}
-          </button>
 
           {/* Quality Setting High (3D) / Low (2D Fallback) Toggle */}
           <button

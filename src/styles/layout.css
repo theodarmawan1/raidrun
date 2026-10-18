@@ -333,6 +333,22 @@ body {
   }
 }
 
+@keyframes guideArrowPulse2D {
+  0%,
+  100% {
+    transform: scale(0.92);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.guide-arrow-2d-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: guideArrowPulse2D 1.1s ease-in-out infinite;
+}
+
 .run-scrolling-lane {
   background-image: repeating-linear-gradient(
     90deg,

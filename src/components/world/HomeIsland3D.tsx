@@ -53,6 +53,9 @@ export const toYPx = (worldZ: number): number => 600 + worldZ / 0.044;
 export const MIN_CAMERA_ZOOM = 0.75;
 export const MAX_CAMERA_ZOOM = 1.85;
 
+// Matches the "close enough to join / open card" radius used by MapPlaceholderScreen
+export const GUIDE_ARRIVAL_RADIUS_METERS = 15;
+
 // Place 3D position overrides so all 4 markers sit cleanly on land without touching screen edges or the bottom-right Flag button
 const getPlaceWorldCoords = (place: WorldPlace3D): [number, number] => {
   switch (place.id) {
@@ -440,6 +443,34 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
   const crystieGroupRef = useRef<THREE.Group>(null);
   const walkRingRef = useRef<THREE.Mesh>(null);
 
+  // 3D guide arrow: one small chunky extruded mesh (no extra lights), pointing toward guidedPlaceId
+  const guideArrowRef = useRef<THREE.Mesh>(null);
+  const guideArrowMatRef = useRef<THREE.MeshToonMaterial>(null);
+  const guideArrowColorKey = useRef<string>('');
+  const guideArrowGeometry = useMemo(() => {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0.78);
+    shape.lineTo(0.6, 0.05);
+    shape.lineTo(0.22, 0.05);
+    shape.lineTo(0.22, -0.62);
+    shape.lineTo(-0.22, -0.62);
+    shape.lineTo(-0.22, 0.05);
+    shape.lineTo(-0.6, 0.05);
+    shape.closePath();
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: 0.2,
+      bevelEnabled: true,
+      bevelThickness: 0.05,
+      bevelSize: 0.05,
+      bevelSegments: 1,
+    });
+    // Lay flat on the ground: shape +Y becomes world +Z (forward), extrusion goes up
+    geo.rotateX(Math.PI / 2);
+    geo.translate(0, 0.25, 0);
+    return geo;
+  }, []);
+  useEffect(() => () => guideArrowGeometry.dispose(), [guideArrowGeometry]);
+
   // Sector refs for distance-based culling
   const southUrbanGroupRef = useRef<THREE.Group>(null);
   const eastCommercialGroupRef = useRef<THREE.Group>(null);
@@ -701,6 +732,29 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
         angleDeg,
       };
       onRaidGuidanceChange?.({ distMeters, offScreen: isOffScreen, angleDeg });
+    }
+
+    // 3D guide arrow: ~1.8 units ahead of Mint, rotates in world space toward the target, hidden on arrival
+    const guideArrow = guideArrowRef.current;
+    if (guideArrow) {
+      const toTargetX = targetX - pos.x;
+      const toTargetZ = targetZ - pos.z;
+      const toTargetLen = Math.hypot(toTargetX, toTargetZ);
+      const arrived = distMeters <= GUIDE_ARRIVAL_RADIUS_METERS || toTargetLen < 0.001;
+      guideArrow.visible = !arrived;
+      if (!arrived) {
+        const ux = toTargetX / toTargetLen;
+        const uz = toTargetZ / toTargetLen;
+        const bob = Math.sin(t * 4);
+        const offset = 1.8 + bob * 0.12;
+        guideArrow.position.set(pos.x + ux * offset, 0.08 + (bob * 0.5 + 0.5) * 0.07, pos.z + uz * offset);
+        guideArrow.rotation.y = Math.atan2(toTargetX, toTargetZ);
+        guideArrow.scale.setScalar(1 + Math.sin(t * 5) * 0.07);
+        if (guideArrowColorKey.current !== guidedPlace.id && guideArrowMatRef.current) {
+          guideArrowMatRef.current.color.set(guidedPlace.accentColor);
+          guideArrowColorKey.current = guidedPlace.id;
+        }
+      }
     }
 
     // Proximity check to the 4 places on land (skip intermediate places while actively walking to a chosen place)
@@ -1165,6 +1219,25 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
           </group>
         );
       })}
+
+      {/* 3D Guide Arrow: single small mesh, rendered last with depth cleared so nothing occludes it */}
+      <mesh
+        ref={guideArrowRef}
+        geometry={guideArrowGeometry}
+        visible={false}
+        renderOrder={999}
+        frustumCulled={false}
+        onBeforeRender={(renderer) => renderer.clearDepth()}
+      >
+        <meshToonMaterial
+          ref={guideArrowMatRef}
+          color="#ff3b9a"
+          transparent
+          opacity={1}
+          gradientMap={gradientMap}
+          fog={false}
+        />
+      </mesh>
 
       {/* Mint Character */}
       <group ref={mintGroupRef} position={[-0.4, 0, 3.6]}>
