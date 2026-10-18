@@ -79,6 +79,69 @@ body {
   flex-shrink: 0;
 }
 
+/*
+ * Run tab (3D home world) exception: no padding, no scrolling, no gap.
+ * Only the canvas goes edge to edge; the HUD keeps its own 16px / safe-area insets.
+ */
+.screen-scroll.screen-scroll--fullbleed {
+  position: relative;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.home-world {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  /* Space from screen bottom to the top of the floating tab bar (incl. raised Deck disc) + breathing room */
+  --home-bottom-clearance: calc(
+    max(var(--page-padding), calc(var(--safe-bottom) + 12px)) + var(--tabbar-height) + 26px
+  );
+  --home-edge-top: calc(var(--safe-top) + var(--page-padding));
+  --home-edge-left: calc(var(--safe-left) + var(--page-padding));
+  --home-edge-right: calc(var(--safe-right) + var(--page-padding));
+}
+
+/* HUD never blocks the world: container is click-through, only controls re-enable pointer events */
+.home-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.home-hud-top {
+  position: absolute;
+  top: var(--home-edge-top);
+  left: var(--home-edge-left);
+  right: var(--home-edge-right);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.home-hud-bottom {
+  position: absolute;
+  left: var(--home-edge-left);
+  right: var(--home-edge-right);
+  bottom: var(--home-bottom-clearance);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.home-hud-control {
+  pointer-events: auto;
+}
+
 /* Reusable UI primitives */
 .frosted-card {
   background: var(--color-surface-card);
@@ -160,6 +223,13 @@ body {
   grid-template-columns: repeat(5, 1fr);
   align-items: center;
   padding: 6px 8px;
+}
+
+/* Over-the-map variant (Run tab home world only) */
+.bottom-tabbar--over-map {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
 }
 
 .tab-item {

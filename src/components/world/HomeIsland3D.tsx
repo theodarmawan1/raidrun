@@ -53,6 +53,18 @@ export const toYPx = (worldZ: number): number => 600 + worldZ / 0.044;
 export const MIN_CAMERA_ZOOM = 0.75;
 export const MAX_CAMERA_ZOOM = 1.85;
 
+// Full-screen framing: reference aspect of the old card viewport and how much to compensate for taller screens
+const BASE_FOV = 52;
+const TALL_REF_ASPECT = 0.68;
+const TALL_FOV_BOOST = 8;
+const TALL_PULLBACK = 0.06;
+const TALL_LOOKAT_SHIFT = 0.8;
+
+// Screen-space zones (px) kept free of marker pills: top name/weather row, bottom tab bar + Deck disc, sides
+const HUD_TOP_RESERVED_PX = 112;
+const HUD_BOTTOM_RESERVED_PX = 140;
+const HUD_SIDE_RESERVED_PX = 56;
+
 // Matches the "close enough to join / open card" radius used by MapPlaceholderScreen
 export const GUIDE_ARRIVAL_RADIUS_METERS = 15;
 
@@ -650,18 +662,31 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
       }
     }
 
-    // Wider three-quarter camera following Mint with easing + limited pinch-to-zoom
+    // Wider three-quarter camera following Mint with easing + limited pinch-to-zoom.
+    // Full-screen portrait is taller/narrower than the old card, so widen FOV + pull back a bit with aspect.
+    const persp = state.camera as THREE.PerspectiveCamera;
+    const aspect = state.size.width / Math.max(1, state.size.height);
+    const tall = THREE.MathUtils.clamp((TALL_REF_ASPECT - aspect) / 0.22, 0, 1);
+    const targetFov = BASE_FOV + tall * TALL_FOV_BOOST;
+    if (Math.abs(persp.fov - targetFov) > 0.01) {
+      persp.fov = targetFov;
+      persp.updateProjectionMatrix();
+    }
     const zoom = THREE.MathUtils.clamp(zoomRef.current, MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
     const camEase = 1 - Math.exp(-5.5 * dt);
     const desiredCamX = THREE.MathUtils.clamp(pos.x * 0.5 + 1.4 * zoom, -5.0, 6.5);
-    const desiredCamY = 12.6 * zoom;
-    const desiredCamZ = THREE.MathUtils.clamp(pos.z + 10.2 * zoom, -10.0, 28.0);
+    const desiredCamY = 12.6 * zoom * (1 + tall * TALL_PULLBACK);
+    const desiredCamZ = THREE.MathUtils.clamp(
+      pos.z + 10.2 * zoom * (1 + tall * TALL_PULLBACK),
+      -10.0,
+      28.0
+    );
 
     state.camera.position.x = THREE.MathUtils.lerp(state.camera.position.x, desiredCamX, camEase);
     state.camera.position.y = THREE.MathUtils.lerp(state.camera.position.y, desiredCamY, camEase);
     state.camera.position.z = THREE.MathUtils.lerp(state.camera.position.z, desiredCamZ, camEase);
 
-    state.camera.lookAt(pos.x * 0.45 + 0.25, 0.15, pos.z - 1.4);
+    state.camera.lookAt(pos.x * 0.45 + 0.25, 0.15, pos.z - 1.4 + tall * TALL_LOOKAT_SHIFT);
 
     // Distance-based culling of world sectors relative to camera position
     const camPos = state.camera.position;
@@ -679,16 +704,22 @@ const IslandScene: React.FC<HomeIsland3DProps & { zoomRef: React.MutableRefObjec
       northBridgeGroupRef.current.visible = Math.hypot(camPos.x - 0.0, camPos.z - -10.0) < cullRadius;
     }
 
-    // Cull distant HTML marker pills beyond 30 units OR when projected under the top overlay bar (y > 0.72)
+    // Cull distant HTML marker pills beyond 30 units OR when they would sit under the floating HUD
+    // (top name/weather row, bottom tab bar + raised Deck disc) or too close to the side edges.
+    const viewW = Math.max(1, state.size.width);
+    const viewH = Math.max(1, state.size.height);
+    const ndcTop = 1 - (2 * HUD_TOP_RESERVED_PX) / viewH;
+    const ndcBottom = -1 + (2 * HUD_BOTTOM_RESERVED_PX) / viewH;
+    const ndcSide = 1 - (2 * HUD_SIDE_RESERVED_PX) / viewW;
     const nextVisibleMarkers: PlaceId[] = [];
     for (const p of places) {
       const [px, pz] = getPlaceWorldCoords(p);
       portalProjVec.current.set(px, 0.42, pz).project(state.camera);
       const inViewBounds =
         portalProjVec.current.z <= 1 &&
-        Math.abs(portalProjVec.current.x) <= 0.88 &&
-        portalProjVec.current.y <= 0.72 &&
-        portalProjVec.current.y >= -0.9;
+        Math.abs(portalProjVec.current.x) <= ndcSide &&
+        portalProjVec.current.y <= ndcTop &&
+        portalProjVec.current.y >= ndcBottom;
       if (
         inViewBounds &&
         Math.hypot(camPos.x - px, camPos.z - pz) < 33 * Math.max(1, zoom * 0.95)

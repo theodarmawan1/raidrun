@@ -86,7 +86,11 @@ export const BottomTabBar: React.FC = () => {
 
   return (
     <nav className="bottom-tabbar-wrapper" aria-label="Primary Bottom Navigation">
-      <div className="bottom-tabbar">
+      <div
+        className={
+          location.pathname === '/' ? 'bottom-tabbar bottom-tabbar--over-map' : 'bottom-tabbar'
+        }
+      >
         {TABS.map((tab) => {
           const active = tab.isActive(location.pathname);
           if (tab.isCenter) {

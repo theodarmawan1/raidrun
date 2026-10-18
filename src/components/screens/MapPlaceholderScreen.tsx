@@ -9,7 +9,6 @@ import {
   Droplets,
   X,
   Compass,
-  Sparkles,
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ACTIVE_RAID_BOSS } from '../../data/mock';
@@ -19,6 +18,9 @@ const LazyHomeIsland3D = React.lazy(() => import('../world/HomeIsland3D'));
 
 const WORLD_HEIGHT = 1050;
 const PROXIMITY_THRESHOLD_PX = 82;
+// Screen zones (px) kept free of 2D marker pills: top name/weather row; bottom tab bar + Deck disc
+const HUD_TOP_RESERVED_PX = 112;
+const HUD_BOTTOM_RESERVED_PX = 140;
 
 // All 4 places are positioned strictly on LAND (y >= 210, never on sky/hills y < 135 or pond water)
 const WORLD_PLACES: WorldPlace3D[] = [
@@ -81,6 +83,13 @@ function checkWebGLSupport(): boolean {
     return false;
   }
 }
+
+// Testing only: ?quality=low or ?quality=high forces the quality (no UI, no persistence beyond the page load)
+const FORCED_QUALITY: 'high' | 'low' | null = (() => {
+  if (typeof window === 'undefined') return null;
+  const value = new URLSearchParams(window.location.search).get('quality');
+  return value === 'low' || value === 'high' ? value : null;
+})();
 
 class WebGLErrorBoundary extends React.Component<
   { fallback: React.ReactNode; onError: () => void; children: React.ReactNode },
@@ -168,7 +177,8 @@ export const MapPlaceholderScreen: React.FC = () => {
   const [dismissedPlaceId, setDismissedPlaceId] = useState<PlaceId | null>(null);
   const [, setIsNorthRegion3D] = useState(false);
 
-  const use3DWorld = qualityPreset === 'high' && webglAvailable;
+  const effectiveQuality: 'high' | 'low' = FORCED_QUALITY ?? qualityPreset;
+  const use3DWorld = effectiveQuality === 'high' && webglAvailable;
 
   useEffect(() => {
     const updateHeight = () => {
@@ -445,6 +455,13 @@ export const MapPlaceholderScreen: React.FC = () => {
 
       {WORLD_PLACES.map((place) => {
         const isSelected = activePlaceId === place.id;
+        const markerScreenY = place.yPx - cameraTop;
+        if (
+          !isSelected &&
+          (markerScreenY < HUD_TOP_RESERVED_PX || markerScreenY > viewportHeight - HUD_BOTTOM_RESERVED_PX)
+        ) {
+          return null;
+        }
         return (
           <button
             key={place.id}
@@ -593,189 +610,8 @@ export const MapPlaceholderScreen: React.FC = () => {
   );
 
   return (
-    <>
-      {/* Top HUD Bar with labeled Energy bar */}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
-          width: '100%',
-        }}
-      >
-        {/* Left Avatar Chip with circular XP ring */}
-        <div
-          className="frosted-card"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '6px 10px 6px 6px',
-            borderRadius: 'var(--radius-pill)',
-            minWidth: 0,
-            flex: '1 1 auto',
-            maxWidth: 206,
-          }}
-        >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              background: 'conic-gradient(#38f8c2 0% 65%, #102a43 65% 100%)',
-              padding: 3,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: '50%',
-                background: 'linear-gradient(180deg, #1ce5c8 0%, #0a878f 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ffffff',
-                fontWeight: 900,
-                fontSize: '0.8rem',
-              }}
-            >
-              TK
-            </div>
-          </div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span
-                style={{
-                  fontWeight: 900,
-                  fontSize: '0.8rem',
-                  color: 'var(--color-text-primary)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {user.username}
-              </span>
-              <span
-                className="pill-badge"
-                style={{
-                  background: 'var(--color-primary-dark)',
-                  color: '#fff',
-                  padding: '2px 6px',
-                  fontSize: '0.64rem',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                }}
-              >
-                Lv {user.level}
-              </span>
-            </div>
-            <div
-              style={{
-                marginTop: 4,
-                width: '100%',
-                maxWidth: 88,
-                height: 6,
-                borderRadius: 999,
-                background: 'rgba(16, 42, 67, 0.14)',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  width: `${Math.round((user.xp / user.nextLevelXp) * 100)}%`,
-                  height: '100%',
-                  background: 'var(--gradient-xp-bar)',
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Right Weather & Labeled Energy HUD */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            gap: 5,
-            flexShrink: 0,
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => showToast('Coming soon in the full app')}
-            className="touch-target"
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: '50%',
-              background: 'var(--color-surface-card)',
-              border: '1.5px solid var(--color-border-card)',
-              boxShadow: 'var(--shadow-card)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--color-text-primary)',
-            }}
-            aria-label="Weather 28 degrees sunny"
-          >
-            <CloudSun size={21} color="#0A878F" />
-          </button>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '4px 8px',
-              borderRadius: 'var(--radius-pill)',
-              background: 'var(--color-surface-card)',
-              border: '1.5px solid var(--color-border-card)',
-              boxShadow: 'var(--shadow-card)',
-            }}
-            aria-label="Raid Energy 76 percent"
-          >
-            <Zap size={12} color="#00b8a9" fill="#00b8a9" />
-            <span
-              style={{
-                fontSize: '0.65rem',
-                fontWeight: 900,
-                color: 'var(--color-text-primary)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Energy
-            </span>
-            <div
-              style={{
-                width: 36,
-                height: 9,
-                borderRadius: 999,
-                background: '#102a43',
-                overflow: 'hidden',
-                padding: 1,
-              }}
-            >
-              <div
-                style={{
-                  width: '76%',
-                  height: '100%',
-                  borderRadius: 999,
-                  background: 'var(--gradient-xp-bar)',
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Home Island Viewport (3D World when Quality=High & WebGL supported; 2D Fallback when Quality=Low) */}
+    <div className="home-world">
+      {/* Full-screen world (3D when Quality=High & WebGL supported; 2D fallback when Low). No card chrome. */}
       <section
         ref={viewportRef}
         onClick={handleGroundTap2D}
@@ -785,13 +621,9 @@ export const MapPlaceholderScreen: React.FC = () => {
             : 'Interactive 2D Home World Map Fallback (Tap ground or markers to walk)'
         }
         style={{
-          position: 'relative',
-          flex: 1,
-          minHeight: 430,
-          borderRadius: 'var(--radius-xl)',
+          position: 'absolute',
+          inset: 0,
           overflow: 'hidden',
-          border: '2px solid rgba(255, 255, 255, 0.92)',
-          boxShadow: 'var(--shadow-card)',
           background: use3DWorld ? '#a5f3fc' : '#80db57',
           cursor: 'pointer',
           userSelect: 'none',
@@ -809,7 +641,7 @@ export const MapPlaceholderScreen: React.FC = () => {
                 guidedPlaceId={guidedPlaceId}
                 initialMintWorldPos={mintWorldPos}
                 targetPos={targetPos}
-                qualityPreset={qualityPreset}
+                qualityPreset={effectiveQuality}
                 onSelectPlace={(placeId, walkTarget) => {
                   dismissWalkHint();
                   setDismissedPlaceId(null);
@@ -834,8 +666,8 @@ export const MapPlaceholderScreen: React.FC = () => {
                 onRegionChange={(isNorth) => setIsNorthRegion3D(isNorth)}
                 onMintWorldMove={(x, z) => setMintWorldPos(x, z)}
                 onLowFpsFallback={() => {
-                  setQualityPreset('low');
-                  showToast('Low frame rate detected — switched to Low quality (2D map)');
+                  // Silent automatic fallback (no notice). A forced test quality is never overridden.
+                  if (!FORCED_QUALITY) setQualityPreset('low');
                 }}
                 onContextError={() => setWebglAvailable(false)}
               />
@@ -844,185 +676,340 @@ export const MapPlaceholderScreen: React.FC = () => {
         ) : (
           renderFallback2DLayer()
         )}
+      </section>
 
-        {/* Top Overlay: Quality High/Low Toggle (guidance is now a 3D / 2D arrow, no text pill) */}
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: 'absolute',
-            top: 10,
-            left: 10,
-            right: 10,
-            zIndex: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 6,
-            pointerEvents: 'none',
-          }}
-        >
-
-          {/* Quality Setting High (3D) / Low (2D Fallback) Toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              const nextPreset = qualityPreset === 'high' ? 'low' : 'high';
-              setQualityPreset(nextPreset);
-              showToast(
-                nextPreset === 'high'
-                  ? 'Switched to High quality (3D World)'
-                  : 'Switched to Low quality (2D Map)'
-              );
-            }}
-            className="touch-target"
-            aria-label={`Quality setting ${qualityPreset === 'high' ? 'High 3D' : 'Low 2D fallback'}`}
-            style={{
-              pointerEvents: 'auto',
-              minHeight: 44,
-              padding: '0 10px',
-              borderRadius: 'var(--radius-pill)',
-              background: 'rgba(255, 255, 255, 0.94)',
-              border: `1.5px solid ${use3DWorld ? '#00b8a9' : '#64748b'}`,
-              boxShadow: 'var(--shadow-card)',
-              fontSize: '0.68rem',
-              fontWeight: 900,
-              color: 'var(--color-text-primary)',
-              gap: 4,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <Sparkles size={13} color={use3DWorld ? '#00b8a9' : '#64748b'} />
-            <span>{use3DWorld ? 'Quality: High (3D)' : 'Quality: Low (2D)'}</span>
-          </button>
-        </div>
-
-        {/* First-time Hint Coachmark: "Tap the ground to walk" (disappears after first move or 6s, once per session) */}
-        {walkHintVisible && (
+      {/* Floating HUD: container is click-through; only controls re-enable pointer events */}
+      <div className="home-hud">
+        <header className="home-hud-top">
+          {/* Left Avatar Chip with circular XP ring */}
           <div
-            role="status"
-            aria-live="polite"
+            className="frosted-card"
             style={{
-              position: 'absolute',
-              left: 16,
-              right: 16,
-              bottom: activePlace ? 128 : 16,
-              zIndex: 9,
               display: 'flex',
-              justifyContent: 'center',
-              pointerEvents: 'none',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 10px 6px 6px',
+              borderRadius: 'var(--radius-pill)',
+              minWidth: 0,
+              flex: '1 1 auto',
+              maxWidth: 206,
             }}
           >
             <div
               style={{
-                padding: '7px 14px',
-                borderRadius: 'var(--radius-pill)',
-                background: 'rgba(16, 42, 67, 0.9)',
-                color: '#ffffff',
-                border: '1.5px solid #38f8c2',
-                boxShadow: '0 8px 20px rgba(16, 42, 67, 0.28)',
-                fontSize: '0.76rem',
-                fontWeight: 800,
-                display: 'inline-flex',
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                background: 'conic-gradient(#38f8c2 0% 65%, #102a43 65% 100%)',
+                padding: 3,
+                display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
-              <span>👆 Tap the ground to walk</span>
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(180deg, #1ce5c8 0%, #0a878f 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  fontWeight: 900,
+                  fontSize: '0.8rem',
+                }}
+              >
+                TK
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Bottom-Right Flag Button (opens Hub screen) */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate('/hub');
-          }}
-          className="touch-target"
-          aria-label="Open Hub"
-          style={{
-            position: 'absolute',
-            right: 12,
-            bottom: activePlace ? 126 : 12,
-            zIndex: 9,
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
-            background: 'var(--color-surface-card)',
-            border: '1.5px solid var(--color-border-card)',
-            boxShadow: 'var(--shadow-card)',
-            color: 'var(--color-text-primary)',
-            transition: 'bottom 0.2s ease',
-          }}
-        >
-          <Flag size={18} fill="#102a43" />
-        </button>
-
-        {/* Contextual Info Card — ONLY appears when Mint is near a marker OR a marker is tapped */}
-        {activePlace && (
-          <div
-            role="dialog"
-            aria-label={`${activePlace.title} Info`}
-            onClick={(e) => e.stopPropagation()}
-            className="frosted-card"
-            style={{
-              position: 'absolute',
-              left: 10,
-              right: 10,
-              bottom: 10,
-              zIndex: 10,
-              background: 'rgba(255, 255, 255, 0.98)',
-              border: `2px solid ${activePlace.accentColor}`,
-              padding: '10px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 10,
-              boxShadow: '0 14px 32px rgba(16, 42, 67, 0.24)',
-            }}
-          >
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span
+                  style={{
+                    fontWeight: 900,
+                    fontSize: '0.8rem',
+                    color: 'var(--color-text-primary)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {user.username}
+                </span>
                 <span
                   className="pill-badge"
                   style={{
-                    background: `${activePlace.accentColor}1f`,
-                    color: 'var(--color-text-primary)',
-                    fontSize: '0.62rem',
-                    padding: '2px 8px',
+                    background: 'var(--color-primary-dark)',
+                    color: '#fff',
+                    padding: '2px 6px',
+                    fontSize: '0.64rem',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                   }}
                 >
-                  {activePlace.detailText}
+                  Lv {user.level}
                 </span>
               </div>
               <div
                 style={{
-                  fontSize: '0.92rem',
-                  fontWeight: 900,
-                  color: 'var(--color-text-primary)',
-                  marginTop: 3,
+                  marginTop: 4,
+                  width: '100%',
+                  maxWidth: 88,
+                  height: 6,
+                  borderRadius: 999,
+                  background: 'rgba(16, 42, 67, 0.14)',
+                  overflow: 'hidden',
                 }}
               >
-                {activePlace.title}
-              </div>
-              <div
-                style={{
-                  fontSize: '0.73rem',
-                  fontWeight: 700,
-                  color: 'var(--color-text-secondary)',
-                }}
-              >
-                {activePlace.subtitle}
+                <div
+                  style={{
+                    width: `${Math.round((user.xp / user.nextLevelXp) * 100)}%`,
+                    height: '100%',
+                    background: 'var(--gradient-xp-bar)',
+                  }}
+                />
               </div>
             </div>
+          </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-              {activePlace.id === 'raid' &&
-                (isCloseToRaidPortal ? (
+          {/* Right Weather & Labeled Energy HUD */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: 5,
+              flexShrink: 0,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => showToast('Coming soon in the full app')}
+              className="touch-target home-hud-control"
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                background: 'var(--color-surface-card)',
+                border: '1.5px solid var(--color-border-card)',
+                boxShadow: 'var(--shadow-card)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--color-text-primary)',
+              }}
+              aria-label="Weather 28 degrees sunny"
+            >
+              <CloudSun size={21} color="#0A878F" />
+            </button>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '4px 8px',
+                borderRadius: 'var(--radius-pill)',
+                background: 'var(--color-surface-card)',
+                border: '1.5px solid var(--color-border-card)',
+                boxShadow: 'var(--shadow-card)',
+              }}
+              aria-label="Raid Energy 76 percent"
+            >
+              <Zap size={12} color="#00b8a9" fill="#00b8a9" />
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 900,
+                  color: 'var(--color-text-primary)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Energy
+              </span>
+              <div
+                style={{
+                  width: 36,
+                  height: 9,
+                  borderRadius: 999,
+                  background: '#102a43',
+                  overflow: 'hidden',
+                  padding: 1,
+                }}
+              >
+                <div
+                  style={{
+                    width: '76%',
+                    height: '100%',
+                    borderRadius: 999,
+                    background: 'var(--gradient-xp-bar)',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="home-hud-bottom">
+          {/* First-time Hint Coachmark: "Tap the ground to walk" (disappears after first move or 6s, once per session) */}
+          {walkHintVisible && (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+              }}
+            >
+              <div
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: 'var(--radius-pill)',
+                  background: 'rgba(16, 42, 67, 0.9)',
+                  color: '#ffffff',
+                  border: '1.5px solid #38f8c2',
+                  boxShadow: '0 8px 20px rgba(16, 42, 67, 0.28)',
+                  fontSize: '0.76rem',
+                  fontWeight: 800,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span>👆 Tap the ground to walk</span>
+              </div>
+            </div>
+          )}
+
+          {/* Bottom-Right Flag Button (opens Hub screen) */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate('/hub');
+            }}
+            className="touch-target home-hud-control"
+            aria-label="Open Hub"
+            style={{
+              alignSelf: 'flex-end',
+              flexShrink: 0,
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              background: 'var(--color-surface-card)',
+              border: '1.5px solid var(--color-border-card)',
+              boxShadow: 'var(--shadow-card)',
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            <Flag size={18} fill="#102a43" />
+          </button>
+
+          {/* Contextual Info Card — ONLY appears when Mint is near a marker OR a marker is tapped */}
+          {activePlace && (
+            <div
+              role="dialog"
+              aria-label={`${activePlace.title} Info`}
+              onClick={(e) => e.stopPropagation()}
+              className="frosted-card home-hud-control"
+              style={{
+                flexShrink: 0,
+                background: 'rgba(255, 255, 255, 0.98)',
+                border: `2px solid ${activePlace.accentColor}`,
+                padding: '10px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+                boxShadow: '0 14px 32px rgba(16, 42, 67, 0.24)',
+              }}
+            >
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span
+                    className="pill-badge"
+                    style={{
+                      background: `${activePlace.accentColor}1f`,
+                      color: 'var(--color-text-primary)',
+                      fontSize: '0.62rem',
+                      padding: '2px 8px',
+                    }}
+                  >
+                    {activePlace.detailText}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: '0.92rem',
+                    fontWeight: 900,
+                    color: 'var(--color-text-primary)',
+                    marginTop: 3,
+                  }}
+                >
+                  {activePlace.title}
+                </div>
+                <div
+                  style={{
+                    fontSize: '0.73rem',
+                    fontWeight: 700,
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
+                  {activePlace.subtitle}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                {activePlace.id === 'raid' &&
+                  (isCloseToRaidPortal ? (
+                    <button
+                      type="button"
+                      onClick={handleJoinRaid}
+                      className="touch-target"
+                      style={{
+                        minHeight: 44,
+                        padding: '0 14px',
+                        borderRadius: 'var(--radius-pill)',
+                        background: 'var(--gradient-cta)',
+                        color: '#ffffff',
+                        fontWeight: 900,
+                        fontSize: '0.78rem',
+                        boxShadow: '0 3px 0 #057a80',
+                      }}
+                    >
+                      Join Raid →
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const raidPlace = WORLD_PLACES[0];
+                        setGuidedPlaceId('raid');
+                        setTargetPos({ xPct: raidPlace.xPct, yPx: raidPlace.yPx + 22 });
+                      }}
+                      className="touch-target"
+                      style={{
+                        minHeight: 44,
+                        padding: '0 12px',
+                        borderRadius: 'var(--radius-pill)',
+                        background: 'rgba(255, 59, 154, 0.12)',
+                        border: '1.5px solid #ff3b9a',
+                        color: 'var(--color-text-primary)',
+                        fontWeight: 900,
+                        fontSize: '0.72rem',
+                      }}
+                    >
+                      Walk Closer ({placeDistances.raid}m)
+                    </button>
+                  ))}
+
+                {activePlace.id === 'event' && (
                   <button
                     type="button"
-                    onClick={handleJoinRaid}
+                    onClick={() => navigate('/events')}
                     className="touch-target"
                     style={{
                       minHeight: 44,
@@ -1035,74 +1022,33 @@ export const MapPlaceholderScreen: React.FC = () => {
                       boxShadow: '0 3px 0 #057a80',
                     }}
                   >
-                    Join Raid →
+                    Open Events →
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const raidPlace = WORLD_PLACES[0];
-                      setGuidedPlaceId('raid');
-                      setTargetPos({ xPct: raidPlace.xPct, yPx: raidPlace.yPx + 22 });
-                    }}
-                    className="touch-target"
-                    style={{
-                      minHeight: 44,
-                      padding: '0 12px',
-                      borderRadius: 'var(--radius-pill)',
-                      background: 'rgba(255, 59, 154, 0.12)',
-                      border: '1.5px solid #ff3b9a',
-                      color: 'var(--color-text-primary)',
-                      fontWeight: 900,
-                      fontSize: '0.72rem',
-                    }}
-                  >
-                    Walk Closer ({placeDistances.raid}m)
-                  </button>
-                ))}
+                )}
 
-              {activePlace.id === 'event' && (
                 <button
                   type="button"
-                  onClick={() => navigate('/events')}
+                  onClick={() => {
+                    setDismissedPlaceId(activePlace.id);
+                    setActivePlaceId(null);
+                  }}
                   className="touch-target"
+                  aria-label="Close place card"
                   style={{
-                    minHeight: 44,
-                    padding: '0 14px',
-                    borderRadius: 'var(--radius-pill)',
-                    background: 'var(--gradient-cta)',
-                    color: '#ffffff',
-                    fontWeight: 900,
-                    fontSize: '0.78rem',
-                    boxShadow: '0 3px 0 #057a80',
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: 'rgba(16, 42, 67, 0.06)',
+                    color: 'var(--color-text-primary)',
                   }}
                 >
-                  Open Events →
+                  <X size={18} />
                 </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setDismissedPlaceId(activePlace.id);
-                  setActivePlaceId(null);
-                }}
-                className="touch-target"
-                aria-label="Close place card"
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'rgba(16, 42, 67, 0.06)',
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                <X size={18} />
-              </button>
+              </div>
             </div>
-          </div>
-        )}
-      </section>
-    </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };

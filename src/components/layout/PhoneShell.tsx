@@ -12,6 +12,8 @@ export const PhoneShell: React.FC<PhoneShellProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const { toastMessage, introDismissed, dismissIntro } = useAppStore();
   const location = useLocation();
+  // The Run tab (3D home world at "/") is full-bleed: canvas edge to edge, HUD floats on top
+  const isHomeWorld = location.pathname === '/';
   const scrollRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -167,7 +169,9 @@ export const PhoneShell: React.FC<PhoneShellProps> = ({ children }) => {
           aria-live="polite"
           style={{
             position: 'absolute',
-            top: 'max(14px, calc(var(--safe-top) + 10px))',
+            top: isHomeWorld
+              ? 'calc(var(--safe-top) + 84px)'
+              : 'max(14px, calc(var(--safe-top) + 10px))',
             left: 16,
             right: 16,
             zIndex: 110,
@@ -198,21 +202,26 @@ export const PhoneShell: React.FC<PhoneShellProps> = ({ children }) => {
         </div>
       )}
 
-      <main ref={scrollRef} className="screen-scroll">
+      <main
+        ref={scrollRef}
+        className={isHomeWorld ? 'screen-scroll screen-scroll--fullbleed' : 'screen-scroll'}
+      >
         {children}
-        <footer
-          aria-label="Prototype status"
-          style={{
-            textAlign: 'center',
-            fontSize: '0.68rem',
-            fontWeight: 800,
-            color: 'var(--color-text-secondary)',
-            paddingTop: 2,
-            opacity: 0.85,
-          }}
-        >
-          Prototype - mock data
-        </footer>
+        {!isHomeWorld && (
+          <footer
+            aria-label="Prototype status"
+            style={{
+              textAlign: 'center',
+              fontSize: '0.68rem',
+              fontWeight: 800,
+              color: 'var(--color-text-secondary)',
+              paddingTop: 2,
+              opacity: 0.85,
+            }}
+          >
+            Prototype - mock data
+          </footer>
+        )}
       </main>
       <BottomTabBar />
     </div>
