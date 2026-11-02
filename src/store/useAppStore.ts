@@ -11,6 +11,43 @@ import {
 } from '../data/mock';
 
 export type WorldPlaceId = 'raid' | 'event' | 'water' | 'popular';
+export type GhostRecordId = 'pr_5km' | 'best_10km' | 'pro_pacer';
+
+export interface GhostRecordPreset {
+  id: GhostRecordId;
+  name: string;
+  subtitle: string;
+  paceLabel: string;
+  paceSecondsPerKm: number;
+  proOnly: boolean;
+}
+
+export const GHOST_RECORDS: GhostRecordPreset[] = [
+  {
+    id: 'pr_5km',
+    name: 'Personal Best 5K',
+    subtitle: 'Rekor lari 5 KM tercepatmu',
+    paceLabel: '5:24 /KM',
+    paceSecondsPerKm: 324,
+    proOnly: false,
+  },
+  {
+    id: 'best_10km',
+    name: 'Rekor 10K Minggu Lalu',
+    subtitle: 'Tantang ritme endurance kamu',
+    paceLabel: '5:12 /KM',
+    paceSecondsPerKm: 312,
+    proOnly: true,
+  },
+  {
+    id: 'pro_pacer',
+    name: 'Elite Ghost Pacer',
+    subtitle: 'Target pace sub-25 menit 5K',
+    paceLabel: '4:55 /KM',
+    paceSecondsPerKm: 295,
+    proOnly: true,
+  },
+];
 
 export const WORLD_PLACE_COORDS_3D: Record<WorldPlaceId, [number, number]> = {
   raid: [0.3, (215 - 600) * 0.044],
@@ -41,6 +78,8 @@ interface RunState {
   demoSpeed: boolean;
   gpsEnabled: boolean;
   ghostRunnerEnabled: boolean;
+  ghostRecordId: GhostRecordId;
+  ghostDeltaMeters: number;
   distanceKm: number;
   elapsedSeconds: number;
   paceSecondsPerKm: number;
@@ -51,6 +90,7 @@ interface RunState {
 
 interface AppState {
   user: typeof INITIAL_USER;
+  isPro: boolean;
   bossMaxHp: number;
   baseCommunityDamage: number;
   bossDeck: RaidBoss[];
@@ -73,6 +113,8 @@ interface AppState {
   getEarnedCoins: () => number;
 
   // Actions
+  subscribePro: () => void;
+  setGhostRecord: (recordId: GhostRecordId) => void;
   setRaidSubTab: (tab: 'lobby' | 'deck') => void;
   setHubTab: (tab: 'overview' | 'raids' | 'routes' | 'events' | 'rsvp') => void;
   setSelectedMarker: (marker: MapMarkerItem | null) => void;
@@ -99,6 +141,7 @@ let toastTimer: number | undefined;
 
 export const useAppStore = create<AppState>((set, get) => ({
   user: INITIAL_USER,
+  isPro: false,
   bossMaxHp: ACTIVE_RAID_BOSS.maxHp,
   baseCommunityDamage: ACTIVE_RAID_BOSS.baseCommunityDamage,
   bossDeck: BOSS_DECK,
@@ -107,6 +150,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     demoSpeed: true,
     gpsEnabled: false,
     ghostRunnerEnabled: true,
+    ghostRecordId: 'pr_5km',
+    ghostDeltaMeters: 18,
     distanceKm: 5.2,
     elapsedSeconds: 1716, // 28:36 at 5:30 /KM
     paceSecondsPerKm: 330, // 5:30 /KM
@@ -162,6 +207,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     return Math.max(10, distCoins + victoryCoins);
   },
 
+  subscribePro: () => {
+    set({ isPro: true });
+    get().showToast('RAIDRUN PRO Aktif! Semua fitur & Ghost Runner Tanpa Batas terbuka.');
+  },
+  setGhostRecord: (recordId) => {
+    const initialDelta = recordId === 'pr_5km' ? 18 : recordId === 'best_10km' ? -6 : -15;
+    set((state) => ({
+      run: {
+        ...state.run,
+        ghostRunnerEnabled: true,
+        ghostRecordId: recordId,
+        ghostDeltaMeters: initialDelta,
+      },
+    }));
+  },
   setRaidSubTab: (tab) => set({ raidSubTab: tab }),
   setHubTab: (tab) => set({ hubTab: tab }),
   setSelectedMarker: (marker) => set({ selectedMarker: marker }),
@@ -285,6 +345,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         state.bossMaxHp - state.baseCommunityDamage - nextCommDmg - userHpDmg
       );
 
+      const deltaShift = state.run.demoSpeed
+        ? state.run.ghostRecordId === 'pro_pacer'
+          ? 1
+          : 2
+        : state.run.ghostRecordId === 'pr_5km'
+          ? 1
+          : -1;
+      const nextGhostDelta = Math.max(-35, Math.min(48, state.run.ghostDeltaMeters + deltaShift));
+
       if (remaining <= 0) {
         return {
           bossDeck: state.bossDeck.map((boss) =>
@@ -298,6 +367,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             distanceKm: nextDist,
             elapsedSeconds: nextElapsed,
             liveCommunityDamage: nextCommDmg,
+            ghostDeltaMeters: nextGhostDelta,
             bossDefeated: true,
           },
         };
@@ -309,6 +379,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           distanceKm: nextDist,
           elapsedSeconds: nextElapsed,
           liveCommunityDamage: nextCommDmg,
+          ghostDeltaMeters: nextGhostDelta,
         },
       };
     }),

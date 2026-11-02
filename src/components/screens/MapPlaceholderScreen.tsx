@@ -9,6 +9,7 @@ import {
   Droplets,
   X,
   Compass,
+  Ghost,
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ACTIVE_RAID_BOSS } from '../../data/mock';
@@ -884,29 +885,61 @@ export const MapPlaceholderScreen: React.FC = () => {
             </div>
           )}
 
-          {/* Bottom-Right Flag Button (opens Hub screen) */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate('/hub');
-            }}
-            className="touch-target home-hud-control"
-            aria-label="Open Hub"
+          {/* Bottom-Right Floating Action Buttons: Ghost Runner Mode (above) & Hub Flag (below) */}
+          <div
             style={{
               alignSelf: 'flex-end',
-              flexShrink: 0,
-              width: 44,
-              height: 44,
-              borderRadius: '50%',
-              background: 'var(--color-surface-card)',
-              border: '1.5px solid var(--color-border-card)',
-              boxShadow: 'var(--shadow-card)',
-              color: 'var(--color-text-primary)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: 10,
+              pointerEvents: 'none',
             }}
           >
-            <Flag size={18} fill="#102a43" />
-          </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/ghost');
+              }}
+              className="touch-target home-hud-control"
+              aria-label="Open Ghost Runner Mode"
+              style={{
+                flexShrink: 0,
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                background: 'var(--color-surface-card)',
+                border: '1.5px solid #00b8a9',
+                boxShadow: '0 6px 18px rgba(0, 184, 169, 0.25), var(--shadow-card)',
+                color: '#0a878f',
+              }}
+            >
+              <Ghost size={20} strokeWidth={2.3} />
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/hub');
+              }}
+              className="touch-target home-hud-control"
+              aria-label="Open Hub"
+              style={{
+                flexShrink: 0,
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                background: 'var(--color-surface-card)',
+                border: '1.5px solid var(--color-border-card)',
+                boxShadow: 'var(--shadow-card)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              <Flag size={18} fill="#102a43" />
+            </button>
+          </div>
 
           {/* Contextual Info Card — ONLY appears when Mint is near a marker OR a marker is tapped */}
           {activePlace && (

@@ -11,12 +11,13 @@ import {
   Award,
   ChevronRight,
   Sparkles,
+  Crown,
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
 export const ProfileScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { user, setHubTab } = useAppStore();
+  const { user, isPro, setHubTab } = useAppStore();
 
   const xpPercent = Math.min(100, Math.round((user.xp / user.nextLevelXp) * 100));
 
@@ -129,6 +130,21 @@ export const ProfileScreen: React.FC = () => {
               >
                 Lv {user.level}
               </span>
+              {isPro && (
+                <span
+                  className="pill-badge"
+                  style={{
+                    background: 'linear-gradient(90deg, #b45309 0%, #f59e0b 100%)',
+                    color: '#ffffff',
+                    fontSize: '0.68rem',
+                    padding: '2px 8px',
+                    gap: 4,
+                  }}
+                >
+                  <Crown size={11} fill="#ffffff" />
+                  PRO
+                </span>
+              )}
               <span
                 style={{
                   fontSize: '0.78rem',
@@ -385,6 +401,71 @@ export const ProfileScreen: React.FC = () => {
           ))}
         </div>
       </section>
+
+      {/* RAIDRUN PRO Upgrade / Status Card */}
+      <button
+        type="button"
+        onClick={() => navigate('/pro')}
+        className="frosted-card touch-target"
+        style={{
+          width: '100%',
+          minHeight: 62,
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          textAlign: 'left',
+          background:
+            'linear-gradient(90deg, rgba(255, 251, 235, 0.96) 0%, rgba(224, 251, 246, 0.96) 100%)',
+          border: '1.5px solid rgba(245, 158, 11, 0.45)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #f59e0b 0%, #0d9488 100%)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Crown size={18} fill="#ffffff" />
+          </div>
+          <div>
+            <div
+              style={{
+                fontSize: '0.92rem',
+                fontWeight: 900,
+                color: 'var(--color-text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span>{isPro ? 'Member RAIDRUN PRO Aktif' : 'Naik Level Jadi RAIDRUN PRO'}</span>
+            </div>
+            <div
+              style={{
+                fontSize: '0.73rem',
+                fontWeight: 700,
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              {isPro
+                ? 'Ghost Runner Tanpa Batas & Raid Eksklusif terbuka'
+                : 'Ghost Runner Tanpa Batas, Raid Eksklusif & Energi Ekstra'}
+            </div>
+          </div>
+        </div>
+
+        <ChevronRight size={20} color="#b45309" />
+      </button>
 
       {/* "View quests" Link Card opening Hub -> Overview tab */}
       <button

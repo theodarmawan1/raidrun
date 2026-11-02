@@ -58,7 +58,8 @@ const TABS: TabConfig[] = [
       pathname === '/' ||
       pathname.startsWith('/run') ||
       pathname.startsWith('/raid') ||
-      pathname.startsWith('/hub'),
+      pathname.startsWith('/hub') ||
+      pathname.startsWith('/ghost'),
   },
   {
     to: '/deck',
@@ -77,7 +78,7 @@ const TABS: TabConfig[] = [
     to: '/profile',
     label: 'Profile',
     icon: <User size={22} strokeWidth={2.4} />,
-    isActive: (pathname) => pathname.startsWith('/profile'),
+    isActive: (pathname) => pathname.startsWith('/profile') || pathname.startsWith('/pro'),
   },
 ];
 

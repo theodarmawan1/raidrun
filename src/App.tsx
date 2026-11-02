@@ -12,6 +12,8 @@ import { RaidLobbyScreen } from './components/screens/RaidLobbyScreen';
 import { RunScreen } from './components/screens/RunScreen';
 import { RaidResultsScreen } from './components/screens/RaidResultsScreen';
 import { RunCompleteScreen } from './components/screens/RunCompleteScreen';
+import { RaidRunProScreen } from './components/screens/RaidRunProScreen';
+import { GhostRunnerScreen } from './components/screens/GhostRunnerScreen';
 
 export const App: React.FC = () => {
   return (
@@ -20,11 +22,13 @@ export const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<MapPlaceholderScreen />} />
           <Route path="/hub" element={<HubScreen />} />
+          <Route path="/ghost" element={<GhostRunnerScreen />} />
           <Route path="/map" element={<MapDiscoveryScreen />} />
           <Route path="/events" element={<EventsScreen />} />
           <Route path="/deck" element={<DeckScreen />} />
           <Route path="/party" element={<PartyScreen />} />
           <Route path="/profile" element={<ProfileScreen />} />
+          <Route path="/pro" element={<RaidRunProScreen />} />
           <Route path="/raid" element={<RaidLobbyScreen />} />
           <Route path="/raid/lobby" element={<RaidLobbyScreen />} />
           <Route path="/run" element={<RunScreen />} />
